@@ -1,0 +1,10 @@
+#!/bin/bash
+docker run -t -d \
+	--gpus all \
+	--shm-size=1g \
+	--ulimit memlock=-1 \
+	-v $PWD:/ws \
+	-p 8786:8787 \
+	-p 8888:8888 \
+	nvcr.io/nvidia/rapidsai/rapidsai-core:22.12-cuda11.2-runtime-ubuntu20.04-py3.9
+
