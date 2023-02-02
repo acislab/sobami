@@ -1,0 +1,51 @@
+#!/bin/bash
+#
+# Automated setup for some things. Requires
+# - docker
+# - git
+# - properly configured NVIDIA drivers
+# - Authorized SSH key located at ~/.ssh/sobami matching the deploy key for github.com/acislab/sobami
+# - And more!
+
+echo "Make sure this user is a member of the docker group. Current groups: $(groups)"
+
+echo "GPU info:"
+nvidia-smi
+
+echo "Docker version: $(docker version)"
+
+# NVIDIA container toolkit
+echo "Installing NVIDIA Container Toolkit"
+echo "- Installation guide https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#installation-guide"
+
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
+       && curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+       && curl -s -L https://nvidia.github.io/libnvidia-container/experimental/$distribution/libnvidia-container.list | \
+          sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+          sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+sudo apt-get update
+sudo apt-get install -y nvidia-docker2
+
+# RAPIDS container
+echo "Getting RAPIDS container"
+echo "- Installation guide https://rapids.ai/start.html#get-rapids"
+docker pull nvcr.io/nvidia/rapidsai/rapidsai-core:22.12-cuda11.2-runtime-ubuntu20.04-py3.9
+docker run --gpus all --rm -it \
+	    --shm-size=1g --ulimit memlock=-1 \
+	        -p 8888:8888 -p 8787:8787 -p 8786:8786 \
+		    nvcr.io/nvidia/rapidsai/rapidsai-core:22.12-cuda11.2-runtime-ubuntu20.04-py3.9
+
+# Authentication
+echo "Setting up authentication"
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/sobami
+
+# Git
+echo "Setting up git"
+git config --global user.email "sobami@acis.ufl.edu"
+git config --global user.name "Sobami"
+git clone git@github.com:acislab/sobami
+
+echo "All done! Start the server container with $(pwd)/sobami/bin/start"
+
