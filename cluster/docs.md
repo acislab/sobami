@@ -106,7 +106,7 @@ vllm serve meta-llama/Llama-3.2-1B-Instruct --pipeline-parallel-size 3 --dtype f
 
 2. **Server Stability**: The `--enable-chunked-prefill=False` parameter is crucial to prevent server crashes until it is fixed. [Related issue](https://github.com/vllm-project/vllm/issues/8024)
 
-3. **GCS Issues**: There's a known issue when using Sobami 1 as the head node, related to Global Control Service (GCS). The server will not start. [Issue details](https://github.com/ray-project/ray/issues/24920) |` [GCS documentation](https://docs.ray.io/en/master/cluster/kubernetes/user-guides/kuberay-gcs-ft.html#kuberay-gcs-ft)
+3. **GCS Issues**: There's a known issue when using Sobami 1 as the head node, related to Global Control Service (GCS). The server will not start. [Issue details](https://github.com/ray-project/ray/issues/24920) | [GCS documentation](https://docs.ray.io/en/master/cluster/kubernetes/user-guides/kuberay-gcs-ft.html#kuberay-gcs-ft)
 
 4. **Docker Image Versions**: For the latest vLLM docker images, check:
    - [Release information](https://github.com/vllm-project/vllm/issues/721)
@@ -116,26 +116,29 @@ vllm serve meta-llama/Llama-3.2-1B-Instruct --pipeline-parallel-size 3 --dtype f
 - Ray Dashboard: sobami2.acis.ufl.edu:5678
 - OpenAI Server: sobami2.acis.ufl.edu:8000
 
-## Production Deployment
+## Kubernetes Deployment Plan
 
-Deploying the cluster and the vLLM server on top of it requires a few additional steps. There is only one possible way that require minimal possible intervention in case a failure happen i.e. w/ Kubernetes.
+To deploy the vLLM server and Ray cluster using Kubernetes, follow these steps:
 
-Continue here -
-https://www.youtube.com/watch?v=t0iJGEG0IXk 
-https://discuss.ray.io/t/automatically-restart-head-node-on-kubernetes/2570 
-https://stackoverflow.com/questions/69223063/how-to-reconnect-to-ray-cluster-after-the-cluster-restarted 
-https://devopscube.com/kubernetes-daemonset/
+1. **Set Up Kubernetes Cluster**:
+    - Follow the guide to set up a Kubernetes cluster using kubeadm: [Setup Kubernetes Cluster with Kubeadm](https://devopscube.com/setup-kubernetes-cluster-kubeadm/).
 
+2. **Configure Kubernetes Nodes for NVIDIA GPUs**:
+    - Configure the Kubernetes nodes to support NVIDIA GPUs: [Guide to Deploying NVIDIA GPU on Kubernetes](https://mickael-baron.fr/blog/2024/07/19/guide-deploying-nvidiagpu-k8s#kubernetes-nodes-configuration).
+    - Deploy the NVIDIA device plugin to manage GPU resources: [NVIDIA k8s-device-plugin](https://github.com/NVIDIA/k8s-device-plugin/).
+    - Additional installation and configuration details: [GPUs in Kubernetes](https://dev.to/thenjdevopsguy/gpus-in-kubernetes-installation-and-configuration-51ea).
 
-Rough plan is - 
+3. **Deploy vLLM and Ray on Kubernetes**:
+    - Follow the vLLM documentation for deploying with Kubernetes: [vLLM Kubernetes Deployment](https://docs.vllm.ai/en/stable/serving/deploying_with_k8s.html).
+    - Use the Ray Kubernetes example for vLLM RayService: [Ray Kubernetes Example](https://docs.ray.io/en/latest/cluster/kubernetes/examples/vllm-rayservice.html).
 
-1. setup kubeadm, kubelet and kubectl on all nodes
-2. setup daemonset and enable nvidia gpu support on all nodes
-3. figure out and attach persistent storage volumns to the pods (look for stateful sets (k8s))
-4. each node will run one pod (daemonset)
-5. setup kuberay on the head node (control plane)
-6. make sure the cluster works with a simple application 
-7. deploy vllm on the cluster
+4. **Optimize Deployment Costs**:
+    - Learn how to save costs while deploying AI technologies: [How We Saved Thousands of Dollars Deploying Low-Cost Open Source AI Technologies](https://opensauced.pizza/blog/how-we-saved-thousands-of-dollars-deploying-low-cost-open-source-ai-technologies).
+
+### Additional Resources
+
+- **Kubernetes DaemonSet**: [Kubernetes DaemonSet](https://devopscube.com/kubernetes-daemonset/).
+
 
 ## Monitoring and Logging
 
