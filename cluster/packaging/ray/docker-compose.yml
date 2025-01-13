@@ -1,0 +1,76 @@
+# docker-compose.yml
+version: '3.8'
+
+secrets:
+  hf_token:
+    external: true
+
+services:
+  ray-head:
+    secrets:
+      - hf_token
+    image: ${DOCKER_IMAGE}
+    entrypoint: /bin/bash
+    command: >
+      -c "ray start --head --block 
+          --port=3002 
+          --dashboard-host=0.0.0.0 
+          --dashboard-port=5678"
+    networks:
+      - ray-network
+    ports:
+      - "5678:5678"
+      - "3002:3002"
+    volumes:
+      - ${PATH_TO_HF_HOME}:/root/.cache/huggingface
+      - ${PATH_TO_TMP_RAY}:/tmp/ray
+    environment:
+      - HF_TOKEN=/run/secrets/hf_token
+      - NCCL_SOCKET_IFNAME=enp68s0f1
+      - GLOO_SOCKET_IFNAME=enp68s0f1
+    shm_size: '10.24gb'
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  ray-worker:
+    image: ${DOCKER_IMAGE}
+    entrypoint: /bin/bash
+    command: >
+      -c "ray start --block 
+          --address=ray-head:3002"
+    networks:
+      - ray-network
+    volumes:
+      - ${PATH_TO_HF_HOME}:/root/.cache/huggingface
+      - ${PATH_TO_TMP_RAY}:/tmp/ray
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - NCCL_SOCKET_IFNAME=enp1s0f1
+      - GLOO_SOCKET_IFNAME=enp1s0f1
+    shm_size: '10.24gb'
+    deploy:
+      mode: replicated
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+networks:
+  ray-network:
+    driver: overlay
