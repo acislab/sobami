@@ -31,6 +31,7 @@ swarm-resource = "DOCKER_RESOURCE_NVIDIA-GPU"
 ```
 
 ### Apply Changes
+
 ```bash
 sudo systemctl restart docker.service
 ```

@@ -1,18 +1,7 @@
 ## Docker Stack Management Guide
 
 ### Setting Up
-1. Create a `docker-compose.yml` file with service specifications
-2. Create required secrets:
-```bash
-echo "my-secret-hf-token-value" | docker secret create hf_token -
-```
-
-In your compose file, declare external secrets:
-```yaml
-secrets:
-  hf_token:
-    external: true
-```
+Create a `docker-compose.yml` file with service specifications
 
 ### Basic Commands
 
