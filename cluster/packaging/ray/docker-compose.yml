@@ -1,76 +1,57 @@
-# docker-compose.yml
-version: '3.8'
-
-secrets:
-  hf_token:
+networks:
+  host:
+    name: host
     external: true
 
 services:
   ray-head:
-    secrets:
-      - hf_token
-    image: ${DOCKER_IMAGE}
+    image: ${SWARM_MANAGER_DOCKER_IMAGE}
     entrypoint: /bin/bash
     command: >
-      -c "ray start --head --block 
-          --port=3002 
-          --dashboard-host=0.0.0.0 
-          --dashboard-port=5678"
+      -c "ray start --head --block --port=$RAY_HEAD_NODE_PORT --dashboard-host=$RAY_DASHBOARD_HOST --dashboard-port=$RAY_DASHBOARD_PORT"
     networks:
-      - ray-network
-    ports:
-      - "5678:5678"
-      - "3002:3002"
+      - host
     volumes:
-      - ${PATH_TO_HF_HOME}:/root/.cache/huggingface
-      - ${PATH_TO_TMP_RAY}:/tmp/ray
+      - ${SWARM_MANAGER_PATH_TO_HF_HOME}:/root/.cache/huggingface
+      - ${SWARM_MANAGER_PATH_TO_TMP_RAY}:/tmp/ray
     environment:
-      - HF_TOKEN=/run/secrets/hf_token
-      - NCCL_SOCKET_IFNAME=enp68s0f1
-      - GLOO_SOCKET_IFNAME=enp68s0f1
-    shm_size: '10.24gb'
+      - HF_TOKEN=${HF_TOKEN}
+      - NCCL_SOCKET_IFNAME=${RAY_HEAD_ETHERNET_DEVICE}
+      - GLOO_SOCKET_IFNAME=${RAY_HEAD_ETHERNET_DEVICE}
+    shm_size: ${SHM_SIZE}
     deploy:
-      mode: replicated
-      replicas: 1
       placement:
         constraints:
           - node.role == manager
       resources:
         reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+          generic_resources:
+            - discrete_resource_spec:
+                kind: "NVIDIA-GPU"
+                value: ${RAY_HEAD_GPU_COUNT}
 
   ray-worker:
-    image: ${DOCKER_IMAGE}
+    image: ${SWARM_MANAGER_DOCKER_IMAGE}
+    networks:
+      - host
     entrypoint: /bin/bash
     command: >
-      -c "ray start --block 
-          --address=ray-head:3002"
-    networks:
-      - ray-network
+      -c "until ray start --block --address=$RAY_HEAD_NODE_IP:$RAY_HEAD_NODE_PORT; do echo 'Waiting for ray-head...'; sleep 5; done"
     volumes:
-      - ${PATH_TO_HF_HOME}:/root/.cache/huggingface
-      - ${PATH_TO_TMP_RAY}:/tmp/ray
+      - ${SWARM_WORKER_PATH_TO_HF_HOME}:/root/.cache/huggingface
+      - ${SWARM_WORKER_PATH_TO_TMP_RAY}:/tmp/ray
     environment:
       - HF_TOKEN=${HF_TOKEN}
-      - NCCL_SOCKET_IFNAME=enp1s0f1
-      - GLOO_SOCKET_IFNAME=enp1s0f1
-    shm_size: '10.24gb'
+      - NCCL_SOCKET_IFNAME=${RAY_WORKER_1_ETHERNET_DEVICE}
+      - GLOO_SOCKET_IFNAME=${RAY_WORKER_1_ETHERNET_DEVICE}
+    shm_size: ${SHM_SIZE}
     deploy:
-      mode: replicated
-      replicas: 2
       placement:
         constraints:
           - node.role == worker
       resources:
         reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-
-networks:
-  ray-network:
-    driver: overlay
+          generic_resources:
+            - discrete_resource_spec:
+                kind: "NVIDIA-GPU"
+                value: ${RAY_WORKER_1_GPU_COUNT}
