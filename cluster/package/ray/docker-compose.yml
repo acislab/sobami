@@ -1,0 +1,57 @@
+networks:
+  host:
+    name: host
+    external: true
+
+services:
+  ray-head:
+    image: ${SWARM_MANAGER_DOCKER_IMAGE}
+    entrypoint: /bin/bash
+    command: >
+      -c "ray start --head --block --port=$RAY_HEAD_NODE_PORT --dashboard-host=$RAY_DASHBOARD_HOST --dashboard-port=$RAY_DASHBOARD_PORT"
+    networks:
+      - host
+    volumes:
+      - ${SWARM_MANAGER_PATH_TO_HF_HOME}:/root/.cache/huggingface
+      - ${SWARM_MANAGER_PATH_TO_TMP_RAY}:/tmp/ray
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - NCCL_SOCKET_IFNAME=${RAY_HEAD_ETHERNET_DEVICE}
+      - GLOO_SOCKET_IFNAME=${RAY_HEAD_ETHERNET_DEVICE}
+    shm_size: ${SHM_SIZE}
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        reservations:
+          generic_resources:
+            - discrete_resource_spec:
+                kind: "NVIDIA-GPU"
+                value: ${RAY_HEAD_GPU_COUNT}
+
+  ray-worker:
+    image: ${SWARM_MANAGER_DOCKER_IMAGE}
+    networks:
+      - host
+    entrypoint: /bin/bash
+    command: >
+      -c "until ray start --block --address=$RAY_HEAD_NODE_IP:$RAY_HEAD_NODE_PORT; do echo 'Waiting for ray-head...'; sleep 5; done"
+    volumes:
+      - ${SWARM_WORKER_PATH_TO_HF_HOME}:/root/.cache/huggingface
+      - ${SWARM_WORKER_PATH_TO_TMP_RAY}:/tmp/ray
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - NCCL_SOCKET_IFNAME=${RAY_WORKER_1_ETHERNET_DEVICE}
+      - GLOO_SOCKET_IFNAME=${RAY_WORKER_1_ETHERNET_DEVICE}
+    shm_size: ${SHM_SIZE}
+    deploy:
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        reservations:
+          generic_resources:
+            - discrete_resource_spec:
+                kind: "NVIDIA-GPU"
+                value: ${RAY_WORKER_1_GPU_COUNT}
