@@ -24,6 +24,9 @@ services:
         constraints:
           - node.role == manager
       resources:
+        limits:
+          memory: ${MEMORY_SIZE}
+          cpus: ${CPUS}
         reservations:
           generic_resources:
             - discrete_resource_spec:
@@ -50,6 +53,9 @@ services:
         constraints:
           - node.role == worker
       resources:
+        limits:
+          memory: ${MEMORY_SIZE}
+          cpus: ${CPUS}
         reservations:
           generic_resources:
             - discrete_resource_spec:

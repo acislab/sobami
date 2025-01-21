@@ -7,8 +7,10 @@ https://docs.docker.com/engine/swarm/swarm-tutorial/create-swarm/
 
 **Generate `docker compose` Configurations**
 
+<!-- generates the config > replaces the cpu number (12) to string ('12') > removes the first line > saves it to a file -->
+
 ```bash
-docker compose --env-file .env config | tail -n +2 > docker-compose-configured.yml
+docker compose --env-file .env config | sed -E "s/cpus: ([0-9\\.]+)/cpus: '\\1'/" | tail -n +2 > docker-compose-configured.yml
 ```
 
 **Deploy Stack**
