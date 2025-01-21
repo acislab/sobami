@@ -1,1 +1,3 @@
 .env
+# escape the generated docker compose confirgurations
+*-configured.yml
