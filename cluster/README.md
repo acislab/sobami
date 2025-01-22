@@ -1,10 +1,8 @@
 ## Overview
 
 <div style="text-align: center;">
-  <figure>
     <img src="sobami.png" alt="sobami-cluster" style="width: auto; height: 500px;" caption="system setup">
-    <figcaption>Sobami Cluster Representation</figcaption>
-  </figure>
+    <p>Sobami Cluster Representation</p>
 </div>
 
 
