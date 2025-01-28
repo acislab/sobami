@@ -40,13 +40,7 @@ services:
     entrypoint: /bin/bash
     command: >
       -c "
-      echo 'Starting Ray server in the background...' &&
-      until ray status; do 
-        echo 'Waiting for ray-head...' &&
-        sleep 5;
-      done &&
-      ray start --address=$RAY_HEAD_NODE_IP:$RAY_HEAD_NODE_PORT &&
-      vllm serve ${MODEL} --host 0.0.0.0 --port 8000 --pipeline-parallel-size 3 --dtype float16 --gpu-memory-utilization 0.95 --enable-chunked-prefill false --enforce-eager
+      echo 'Starting Ray server in the background...' && until ray status; do echo 'Waiting for ray-head...' && sleep 5; done && ray start --address=$RAY_HEAD_NODE_IP:$RAY_HEAD_NODE_PORT && vllm serve ${MODEL} --host 0.0.0.0 --port 8000 --pipeline-parallel-size 3 --dtype float16 --gpu-memory-utilization 0.95 --enable-chunked-prefill false --enforce-eager
       "
     volumes:
       - ${SWARM_WORKER_PATH_TO_HF_HOME}:/root/.cache/huggingface
