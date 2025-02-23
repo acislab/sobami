@@ -23,6 +23,10 @@ services:
       placement:
         constraints:
           - node.role == manager
+      mode: replicated
+      replicas: 1
+      restart_policy:
+          condition: on-failure
       resources:
         limits:
           memory: ${MEMORY_SIZE}
@@ -33,7 +37,7 @@ services:
                 kind: "NVIDIA-GPU"
                 value: ${RAY_HEAD_GPU_COUNT}
 
-  vllm:
+  ray-worker:
     image: ${SWARM_MANAGER_DOCKER_IMAGE}
     networks:
       - host
@@ -52,6 +56,10 @@ services:
       placement:
         constraints:
           - node.role == worker
+      mode: replicated
+      replicas: 1
+      restart_policy:
+          condition: on-failure
       resources:
         limits:
           memory: ${MEMORY_SIZE}
@@ -61,3 +69,29 @@ services:
             - discrete_resource_spec:
                 kind: "NVIDIA-GPU"
                 value: ${RAY_WORKER_1_GPU_COUNT}
+
+  prometheus:
+    image: ${PROMETHEUS_DOCKER_IMAGE}
+    volumes:
+      - ${PROMETHEUS_PATH_TO_STORAGE}:/etc/prometheus:rw
+      - ${PROMETHEUS_RAY_DISCOVERY_JSON_PATH}:/etc/discoveries/prom_metrics_service_discovery.json
+      - ${PROMETHEUS_CONFIG_PATH}:/etc/configs:rw
+    command:
+      - '--config.file=/etc/configs/prometheus.yml'
+      - '--storage.tsdb.path=/etc/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - host
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    resources:
+        limits:
+          memory: ${SERVICE_MEMORY}
+          cpus: ${SERVICE_CPUS}
