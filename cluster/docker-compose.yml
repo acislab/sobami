@@ -18,7 +18,6 @@ services:
       - HF_TOKEN=${HF_TOKEN}
       - NCCL_SOCKET_IFNAME=${RAY_HEAD_ETHERNET_DEVICE}
       - GLOO_SOCKET_IFNAME=${RAY_HEAD_ETHERNET_DEVICE}
-    shm_size: ${SHM_SIZE}
     deploy:
       placement:
         constraints:
@@ -51,7 +50,6 @@ services:
       - HF_TOKEN=${HF_TOKEN}
       - NCCL_SOCKET_IFNAME=${RAY_WORKER_1_ETHERNET_DEVICE}
       - GLOO_SOCKET_IFNAME=${RAY_WORKER_1_ETHERNET_DEVICE}
-    shm_size: ${SHM_SIZE}
     deploy:
       placement:
         constraints:
@@ -73,12 +71,12 @@ services:
   prometheus:
     image: ${PROMETHEUS_DOCKER_IMAGE}
     volumes:
-      - ${PROMETHEUS_PATH_TO_STORAGE}:/etc/prometheus:rw
-      - ${PROMETHEUS_RAY_DISCOVERY_JSON_PATH}:/etc/discoveries/prom_metrics_service_discovery.json
+      - ${PROMETHEUS_STORAGE_PATH}:/prometheus:rw
+      - ${PROMETHEUS_RAY_DISCOVERY_JSON_PATH}:/etc/targets/prom_metrics_service_discovery.json
       - ${PROMETHEUS_CONFIG_PATH}:/etc/configs:rw
     command:
       - '--config.file=/etc/configs/prometheus.yml'
-      - '--storage.tsdb.path=/etc/prometheus'
+      - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
     networks:
@@ -91,7 +89,7 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
-    resources:
-        limits:
-          memory: ${SERVICE_MEMORY}
-          cpus: ${SERVICE_CPUS}
+      resources:
+          limits:
+            memory: ${SERVICE_MEMORY}
+            cpus: ${SERVICE_CPUS}
