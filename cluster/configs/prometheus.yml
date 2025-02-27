@@ -8,3 +8,8 @@ scrape_configs:
     file_sd_configs:
       - files:
         - '/etc/targets/prom_metrics_service_discovery.json'
+
+  - job_name: 'chat_backend'
+    file_sd_configs:
+      - files:
+        - '/etc/targets/backend_prom_metrics_service_discovery.json'

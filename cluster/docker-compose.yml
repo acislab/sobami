@@ -73,6 +73,7 @@ services:
     volumes:
       - ${PROMETHEUS_STORAGE_PATH}:/prometheus:rw
       - ${PROMETHEUS_RAY_DISCOVERY_JSON_PATH}:/etc/targets/prom_metrics_service_discovery.json
+      - ${PROMETHEUS_CHAT_BACKEND_DISCOVERY_JSON_PATH}:/etc/targets/backend_prom_metrics_service_discovery.json
       - ${PROMETHEUS_CONFIG_PATH}:/etc/configs:rw
     command:
       - '--config.file=/etc/configs/prometheus.yml'
