@@ -2,7 +2,6 @@ from jinja2 import Template
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 from typing import List, Dict
-from mistune import html
 
 @dataclass
 class Message:
@@ -24,9 +23,6 @@ class WeeklyUsageSummary:
 
     def format_date(self, date: datetime) -> str:
         return date.strftime("%b %d, %Y at %I:%M %p")
-
-    def render_markdown(self, markdown):
-        return html(markdown)
 
     def get_reporting_period(self) -> Dict[str, str]:
         end_date = datetime.now()
