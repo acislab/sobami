@@ -16,9 +16,22 @@ class MessageMetric:
     count: int = 0
     description: str = ""
 
+@dataclass
+class User:
+    id: str
+    name: str = ""
+    preferred_username: str = ""
+    given_name: str = ""
+    family_name: str = ""
+    email: str = ""
+    created: datetime = None
+    temp: bool = False
+    organization: str = ""
+
 class WeeklyUsageSummary:
-    def __init__(self, weekly_data: Dict[str, Dict]):
+    def __init__(self, weekly_data: Dict[str, Dict], users_data: List[User] = None):
         self.weekly_data = weekly_data
+        self.users_data = users_data or []
         self.message_metrics: Dict[str, MessageMetric] = {}
 
     def format_date(self, date: datetime) -> str:
@@ -76,7 +89,6 @@ class WeeklyUsageSummary:
 
         return self.message_metrics
     
-
     def generate_html_email(self) -> str:
         period = self.get_reporting_period()
         total_users = len(self.weekly_data)
@@ -111,6 +123,7 @@ class WeeklyUsageSummary:
                         "preview": self.get_conversation_preview(messages),
                         "messages": messages
                     })
+        total_conversation = len(user_conversations)
 
         # Jinja2 HTML template
         template_str = """
@@ -118,154 +131,126 @@ class WeeklyUsageSummary:
         <html lang="en">
         <head>
             <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
             body { 
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; 
-                line-height: 1.6; 
+                line-height: 1.5; 
                 color: #1a1a1a; 
-                max-width: 50rem; 
-                margin: 2rem; 
-                padding: 1.25rem; 
+                margin: 0; 
+                padding: 0; 
                 background-color: #ffffff;
+            }
+            .container {
+                max-width: 600px;
+                margin: 1rem auto;
+                padding: 1rem;
                 border: 0.0625rem solid #e0e0e0;
                 border-radius: 0.5rem;
             }
             .header { 
                 text-align: center; 
-                margin-bottom: 1.875rem; 
+                margin-bottom: 1.5rem; 
             }
             .header h1 { 
                 color: #000000; 
-                font-size: 1.5rem; 
-                margin-bottom: 0.625rem; 
+                font-size: 1.4rem; 
+                margin-bottom: 0.5rem; 
             }
             .header p { 
                 color: #666; 
                 font-size: 0.875rem; 
+                margin: 0;
             }
             .overview-section {
                 background-color: #f9f9f9; 
                 border-radius: 0.5rem; 
-                padding: 1.25rem; 
-                margin-bottom: 1.25rem;
+                padding: 1rem; 
+                margin-bottom: 1rem;
             }
             .overview-stats {
                 display: flex;
+                flex-wrap: wrap;
                 justify-content: space-between;
                 text-align: center;
             }
             .stat {
                 flex: 1;
+                min-width: 20%;
+                margin: 0.5rem 0;
             }
             .stat-value {
-                font-size: 1.75rem; 
+                font-size: 1.5rem; 
                 font-weight: bold; 
                 color: #000000;
             }
             .stat-label {
                 color: #666;
                 font-size: 0.8rem;
-                margin-top: 0.3125rem;
+                margin-top: 0.25rem;
+            }
+            .table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 1rem;
+                table-layout: fixed;
+            }
+            .table th, 
+            .table td {
+                border: 1px solid #e0e0e0;
+                padding: 0.5rem;
+                font-size: 0.875rem;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+            .table th {
+                background-color: #f0f0f0;
+                font-weight: 600;
+                text-align: left;
             }
             .new-conversations {
-                margin-top: 1.25rem;
+                margin-top: 1rem;
             }
-            .conversation-item {
-                background-color: #ffffff;
-                border: 0.0625rem solid #e0e0e0;
-                border-radius: 0.5rem;
-                margin-bottom: 0.9375rem;
-                box-shadow: 0 0.0625rem 0.1875rem rgba(0,0,0,0.05);
-            }
-            .conversation-header {
+            .conversation-card {
+                width: full;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                cursor: pointer;
-                padding: 1.75rem;
-            }
-            .conversation-header h3 {
-                margin: 0;
-                font-size: 1rem;
-                color: #000000;
-            }
-            .conversation-header .message-meta {
-                display: flex;
-                align-items: center;
-                color: #666;
-                font-size: 0.875rem;
-            }
-            .message-meta {
-                padding-right: 0.9375rem;
-            }
-            .conversation-preview {
-                margin-top: 0.25rem;
-                font-size: 0.875rem;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-            .conversation-content {
-                display: none;
-                padding: 0.9375rem;
-                border-top: 0.0625rem solid #e0e0e0;
-            }
-            .conversation-content.active {
-                display: block;
-                padding: 1.75rem;
-            }
-            .message {
-                margin-bottom: 0.75rem;
-                padding: 1rem;
-                border-radius: 0.5rem;
-            }
-            .message-user {
-                background-color: #f0f6ff;
-                color: #1a1a1a;
-            }
-            .message-ai {
                 background-color: #f0f0f0;
-                color: #1a1a1a;
+                border-radius: 0.5rem;
+                margin-bottom: 0.75rem;
+                padding: 0.75rem;
             }
-            .message-date {
-                color: #666;
-                font-size: 0.75rem;
-                margin-top: 0.3125rem;
+            .conversation-header {
+                display: flex;
+                flex-direction: column;
             }
-            .message-id {
-                color: #666;
+            .conversation-meta {
                 font-size: 0.75rem;
+                color: #666;
+                margin-bottom: 0.25rem;
                 font-family: monospace;
             }
-            .user {
-                text-align: right;
+            .conversation-meta strong {
+                color: #000;
+            }
+            .message-count {
+                font-weight: bold;
+                padding: 0.25rem 0.5rem;
+                border-radius: 1rem;
+                font-size: 0.75rem;
+                margin-top: 0.25rem;
+                display: inline-block;
             }
             .metrics-section {
-                margin-top: 1.875rem;
+                margin-top: 1.5rem;
                 padding: 0;
-            }
-            .metrics-table {
-                width: 100%;
-                border-collapse: collapse;
-            }
-            .metrics-table th, 
-            .metrics-table td {
-                border: 0.0625rem solid #e0e0e0;
-                padding: 0.625rem;
-                text-align: left;
-            }
-            .metrics-table th {
-                background-color: #f9f9f9;
-                color: #000000;
             }
             .footer {
                 text-align: center;
                 color: #666;
-                margin-top: 1.875rem;
+                margin-top: 1.5rem;
                 font-size: 0.75rem;
-            }
-            .expand-icon {
-                margin-left: 0.625rem;
             }
             .id-info {
                 font-size: 0.75rem;
@@ -273,106 +258,104 @@ class WeeklyUsageSummary:
                 font-family: monospace;
             }
             .id-info p {
-                margin: 0;
+                margin: 0 0 0.25rem 0;
+            }
+            h2 {
+                color: #000000; 
+                font-size: 1.1rem; 
+                margin: 1rem 0 0.75rem 0;
             }
             </style>
-            <script>
-            function toggleConversation(id) {
-                const conversationItem = document.getElementById(id);
-                const content = conversationItem.querySelector('.conversation-content');
-                const icon = conversationItem.querySelector('.expand-icon');
-                
-                content.classList.toggle('active');
-                icon.style.transform = content.classList.contains('active') 
-                ? 'rotate(180deg)' 
-                : 'rotate(0deg)';
-            }
-            </script>
         </head>
         <body>
-            <div class="header">
-            <h1>iChatBio - Weekly Usage Summary</h1>
-            <p>{{ period.start }} - {{ period.end }}</p>
-            </div>
+            <div class="container">
+                <div class="header">
+                    <h1>iChatBio - Weekly Summary: New User Activity</h1>
+                    <p><u>{{ period.start }} - {{ period.end }}</u></p>
+                </div>
 
-            <div class="overview-section">
-            <div class="overview-stats">
-                <div class="stat">
-                <div class="stat-value">{{ total_users }}</div>
-                <div class="stat-label">New Users</div>
-                </div>
-                <div class="stat">
-                <div class="stat-value">{{ total_messages }}</div>
-                <div class="stat-label">Total Messages</div>
-                </div>
-                <div class="stat">
-                <div class="stat-value">{{ (total_messages / total_users)|round(1) }}</div>
-                <div class="stat-label">Avg. Messages/User</div>
-                </div>
-            </div>
-            </div>
-
-            <div class="new-conversations">
-            <h2 style="color: #000000; font-size: 1.25rem; margin-bottom: 0.9375rem;">New User Conversations</h2>
-            {% for conv in user_conversations %}
-            <div id="{{ conv.user_id }}-{{ conv.conversation_id }}" class="conversation-item">
-                <div class="conversation-header" onclick="toggleConversation('{{ conv.user_id }}-{{ conv.conversation_id }}')">
-                <div>
-                    <div class="id-info">
-                        <p style="font-weight: bold; color: #000000">Username: {{ conv.username }}</p>
-                        <p style="color: #666; margin: 0px; font-size:0.75rem">Joined: {{ conv.join_date }}</p>
-                        <p>Conversation ID: {{ conv.conversation_id }}</p>
+                <div class="overview-section">
+                    <div class="overview-stats">
+                        <div class="stat">
+                            <div class="stat-value">{{ total_users }}</div>
+                            <div class="stat-label">Sign Ups</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value">{{ total_conversations }}</div>
+                            <div class="stat-label">Conversations</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value">{{ total_messages }}</div>
+                            <div class="stat-label">Messages</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value">{{ (total_messages / total_users)|round(1) }}</div>
+                            <div class="stat-label">Avg. Messages/User</div>
+                        </div>
                     </div>
-                    <div class="conversation-preview">{{ conv.preview }}</div>
                 </div>
-                <div class="message-meta">
-                    {{ conv.message_count }} messages
-                    <svg class="expand-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
-                </div>
-                </div>
-                <div class="conversation-content">
-                {% for msg in conv.messages %}
-                <div class="message {{ 'message-user user' if msg.type == 'user_text_message' else 'message-ai' }}">
-                    {% if msg.type == 'ai_processing_message' %}
-                        <div style="color: #666; font-style: italic;">Processing: {{ msg.value.summary if msg.value is mapping and msg.value.summary else msg.value }}</div>
-                    {% else %}
-                        {{ msg.value }}
-                    {% endif %}
-                    <div class="message-date">{{ msg.created.strftime('%b %d, %Y at %I:%M %p') }}</div>
-                    <div class="message-id">Message ID: {{ msg.id }}</div>
-                </div>
-                {% endfor %}
-                </div>
-            </div>
-            {% endfor %}
-            </div>
 
-            <div class="metrics-section overview-section">
-            <h2 style="color: #000000; font-size: 1.25rem; margin-bottom: 0.9375rem;">Metrics</h2>
-            <table class="metrics-table">
-                <thead>
-                <tr>
-                    <th>Message Type</th>
-                    <th>Count</th>
-                    <th>Description</th>
-                </tr>
-                </thead>
-                <tbody>
-                {% for type, metric in message_metrics.items() %}
-                <tr>
-                    <td>{{ type }}</td>
-                    <td>{{ metric.count }}</td>
-                    <td>{{ metric.description }}</td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-            </div>
-            <div class="footer">
-            <p>This is an automated summary generated on {{ generation_date }}</p>
-            <p>&copy; 2025 <a href="https://www.acis.ufl.edu" class="footer" target="_blank">www.acis.ufl.edu</a></p>         
+                <h2>New Users</h2>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th width="35%">Email</th>
+                            <th width="30%">Name</th>
+                            <th width="35%">Organization</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users_data %}
+                        <tr>
+                            <td>{{ user.email }}</td>
+                            <td>{{ user.given_name }}</td>
+                            <td>{{ user.organization }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <h2>User Conversations</h2>
+                <div class="new-conversations">
+                    {% for conv in user_conversations %}
+                    <div class="conversation-card">
+                        <div class="conversation-header">
+                            <div class="id-info">
+                                <p><strong>Username:</strong> {{ conv.username }}</p>
+                                <p><strong>Joined:</strong> {{ conv.join_date }}</p>
+                                <p><strong>Conversation ID:</strong> {{ conv.conversation_id }}</p>
+                            </div>
+                        </div>
+                        <div class="message-count">{{ conv.message_count }} messages</div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="metrics-section overview-section">
+                    <h2>Messaging Metrics</h2>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th width="30%">Message Type</th>
+                                <th width="20%">Count</th>
+                                <th width="50%">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for type, metric in message_metrics.items() %}
+                            <tr>
+                                <td>{{ type }}</td>
+                                <td>{{ metric.count }}</td>
+                                <td>{{ metric.description }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="footer">
+                    <p>This is an automated summary generated on {{ generation_date }}</p>
+                    <p>&copy; 2025 <a href="https://www.acis.ufl.edu" target="_blank">www.acis.ufl.edu</a></p>         
+                </div>
             </div>
         </body>
         </html>
@@ -385,5 +368,7 @@ class WeeklyUsageSummary:
             total_messages=total_messages,
             message_metrics=message_metrics,
             user_conversations=user_conversations,
+            total_conversations=total_conversation,
+            users_data=self.users_data,
             generation_date=datetime.now().strftime("%B %d, %Y")
         )

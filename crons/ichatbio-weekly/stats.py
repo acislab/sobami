@@ -4,21 +4,22 @@ import json
 import logging
 import os
 import psycopg2
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+from dataclasses import dataclass
 
-log_file = 'ichatbio_stats.log'
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
-    handlers=[
-        logging.FileHandler(log_file),
-        logging.StreamHandler()  # keep console output
-    ]
-)
-logger = logging.getLogger('ichatbio-stats')
-logger.info(f"Logging initialized. Saving logs to {log_file}")
+logger = logging.getLogger('ichatbio_email_service.weekly.log')
 
+@dataclass
+class User:
+    id: str
+    name: str = ""
+    preferred_username: str = ""
+    given_name: str = ""
+    family_name: str = ""
+    email: str = ""
+    created: datetime = None
+    temp: bool = False
+    organization: str = ""
 
 # ================================================================== #
 # Queries
@@ -182,6 +183,66 @@ def get_nested_data(user_map: Dict[str, str], connection_string: str) -> Dict[st
         raise
 
 
+def get_user_details(connection_string: str, days: int = 7) -> List[User]:
+    """
+    Fetch detailed user information for users who registered within the last specified number of days.
+    
+    Args:
+        connection_string: PostgreSQL connection string
+        days: Number of days to look back
+        
+    Returns:
+        List of User objects
+    """
+    try:
+        conn = get_db_connection(connection_string)
+        cur = conn.cursor()
+        cutoff_date = datetime.now() - timedelta(days=days)
+        
+        query = """
+        SELECT 
+            id, 
+            name, 
+            preferred_username, 
+            given_name, 
+            family_name, 
+            email, 
+            created, 
+            temp, 
+            organization
+        FROM users
+        WHERE created >= %s
+        ORDER BY created DESC;
+        """
+        
+        cur.execute(query, (cutoff_date,))
+        
+        users = []
+        for row in cur.fetchall():
+            user = User(
+                id=row[0],
+                name=row[1] or "",
+                preferred_username=row[2] or "",
+                given_name=row[3] or "",
+                family_name=row[4] or "",
+                email=row[5] or "",
+                created=row[6],
+                temp=row[7] or False,
+                organization=row[8] or "-"
+            )
+            users.append(user)
+        
+        cur.close()
+        conn.close()
+        
+        logger.info(f"Retrieved detailed information for {len(users)} users")
+        return users
+    
+    except Exception as e:
+        logger.error(f"Error fetching detailed user information: {e}")
+        raise
+
+
 # ================================================================== #
 # Retrieval and Export
 # ================================================================== #
@@ -207,8 +268,9 @@ def get_weekly_data(connection_string: Optional[str] = None, days: int = 7) -> D
 
         user_map = get_new_users(connection_string, days)
         data = get_nested_data(user_map, connection_string)
+        detailed_users = get_user_details(connection_string, days)
         
-        return data
+        return data, detailed_users
         
     except Exception as e:
         logger.error(f"Failed to retrieve weekly data: {e}")
