@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Weekly iChatBio Usage Email Service on Wednesdays
+Requires=ichatbio-weekly.service
+
+[Timer]
+OnCalendar=Wed *-*-* 08:00:00
+Persistent=true
+Environment=TZ=America/New_York
+
+[Install]
+WantedBy=timers.target
