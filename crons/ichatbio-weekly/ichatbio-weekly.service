@@ -1,0 +1,15 @@
+[Unit]
+Description=Weekly iChatBio Usage Email Service
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/nitingoyal/crons/ichatbio-weekly
+ExecStart=/home/nitingoyal/crons/ichatbio-weekly/venv/bin/python3 /home/nitingoyal/crons/ichatbio-weekly/main.py
+User=nitingoyal
+Group=llms
+StandardOutput=append:/var/log/weekly-email.log
+StandardError=append:/var/log/weekly-email.log
+
+[Install]
+WantedBy=multi-user.target
