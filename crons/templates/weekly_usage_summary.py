@@ -20,12 +20,8 @@ class MessageMetric:
 class User:
     id: str
     name: str = ""
-    preferred_username: str = ""
     given_name: str = ""
-    family_name: str = ""
     email: str = ""
-    created: datetime = None
-    temp: bool = False
     organization: str = ""
 
 class WeeklyUsageSummary:
@@ -45,17 +41,6 @@ class WeeklyUsageSummary:
             "start": start_date.strftime("%B %d, %Y"),
             "end": end_date.strftime("%B %d, %Y")
         }
-
-    def get_conversation_preview(self, messages: List[Message]) -> str:
-        if not messages:
-            return "No messages"
-
-        first_user_message = next((m for m in messages if m.type == "user_text_message"), None)
-        first_ai_response = next((m for m in messages if m.type == "ai_text_message"), None)
-
-        if first_user_message and first_ai_response:
-            return f'User: "{first_user_message.value[:30]}..." AI: "{first_ai_response.value[:30]}..."'
-        return ""
 
     def analyze_message_metrics(self) -> Dict[str, MessageMetric]:
         """Analyze and categorize message types."""
@@ -120,7 +105,6 @@ class WeeklyUsageSummary:
                         "username": user_id,  # Keeping existing field for compatibility
                         "join_date": self.format_date(messages[0].created),
                         "message_count": len(messages),
-                        "preview": self.get_conversation_preview(messages),
                         "messages": messages
                     })
         total_conversation = len(user_conversations)
@@ -300,7 +284,7 @@ class WeeklyUsageSummary:
                     <thead>
                         <tr>
                             <th width="35%">Email</th>
-                            <th width="30%">Name</th>
+                            <th width="30%">Profile</th>
                             <th width="35%">Organization</th>
                         </tr>
                     </thead>
@@ -308,7 +292,11 @@ class WeeklyUsageSummary:
                         {% for user in users_data %}
                         <tr>
                             <td>{{ user.email }}</td>
-                            <td>{{ user.given_name }}</td>
+                            <td>
+                                <a href="https://ichatbio.org/admin#/user/{{ user.user_id }}" target="_blank">
+                                {{ user.given_name }}
+                                </a>
+                            </td>
                             <td>{{ user.organization }}</td>
                         </tr>
                         {% endfor %}

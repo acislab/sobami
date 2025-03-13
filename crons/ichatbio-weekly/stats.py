@@ -13,12 +13,8 @@ logger = logging.getLogger('ichatbio_email_service.weekly.log')
 class User:
     id: str
     name: str = ""
-    preferred_username: str = ""
     given_name: str = ""
-    family_name: str = ""
     email: str = ""
-    created: datetime = None
-    temp: bool = False
     organization: str = ""
 
 # ================================================================== #
@@ -203,12 +199,8 @@ def get_user_details(connection_string: str, days: int = 7) -> List[User]:
         SELECT 
             id, 
             name, 
-            preferred_username, 
             given_name, 
-            family_name, 
             email, 
-            created, 
-            temp, 
             organization
         FROM users
         WHERE created >= %s
@@ -222,13 +214,9 @@ def get_user_details(connection_string: str, days: int = 7) -> List[User]:
             user = User(
                 id=row[0],
                 name=row[1] or "",
-                preferred_username=row[2] or "",
-                given_name=row[3] or "",
-                family_name=row[4] or "",
-                email=row[5] or "",
-                created=row[6],
-                temp=row[7] or False,
-                organization=row[8] or "-"
+                given_name=row[2] or "",
+                email=row[3] or "",
+                organization=row[4] or "-"
             )
             users.append(user)
         

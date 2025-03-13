@@ -53,7 +53,6 @@ if not recipients:
 logger.info(f"Sending email to {len(recipients)} recipients")
 
 # Generate email content
-print(data, users_data)
 email_generator = WeeklyUsageSummary(data, users_data)
 email_content = email_generator.generate_html_email()
 logger.info("Email generated")
