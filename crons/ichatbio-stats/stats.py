@@ -13,12 +13,8 @@ logger = logging.getLogger('ichatbio_email_service.weekly.log')
 class User:
     id: str
     name: str = ""
-    preferred_username: str = ""
     given_name: str = ""
-    family_name: str = ""
     email: str = ""
-    created: datetime = None
-    temp: bool = False
     organization: str = ""
 
 # ================================================================== #
@@ -49,7 +45,8 @@ def get_new_users(connection_string: str, days: int = 7) -> Dict[str, str]:
         conn = get_db_connection(connection_string)
         cur = conn.cursor()
 
-        cutoff_date = datetime.now() - timedelta(days=days)
+        start_date = datetime.now().date() - timedelta(days=days)
+        end_date = datetime.now().date()
         
         query = """
         SELECT 
@@ -57,11 +54,11 @@ def get_new_users(connection_string: str, days: int = 7) -> Dict[str, str]:
             u.email AS user_email,
             u.given_name AS username
         FROM users u
-        WHERE u.created >= %s
+        WHERE u.created >= %s and u.created < %s
         ORDER BY u.created DESC;
         """
         
-        cur.execute(query, (cutoff_date,))
+        cur.execute(query, (start_date, end_date))
         
         # Create user mapping
         user_map = {}
@@ -138,7 +135,7 @@ def get_nested_data(user_map: Dict[str, str], connection_string: str) -> Dict[st
         JOIN conversations c ON u.id = c.user_id
         JOIN messages m ON c.id = m.conversation_id
         WHERE u.id = ANY(%s)
-        ORDER BY u.id, c.created, m.created;
+        ORDER BY c.created DESC;
         """
 
         cur.execute(query, (user_ids,))
@@ -197,38 +194,31 @@ def get_user_details(connection_string: str, days: int = 7) -> List[User]:
     try:
         conn = get_db_connection(connection_string)
         cur = conn.cursor()
-        cutoff_date = datetime.now() - timedelta(days=days)
+        start_date = datetime.now().date() - timedelta(days=days)
+        end_date = datetime.now().date()
         
         query = """
         SELECT 
             id, 
             name, 
-            preferred_username, 
             given_name, 
-            family_name, 
             email, 
-            created, 
-            temp, 
             organization
         FROM users
-        WHERE created >= %s
+        WHERE created >= %s and created < %s
         ORDER BY created DESC;
         """
         
-        cur.execute(query, (cutoff_date,))
+        cur.execute(query, (start_date, end_date))
         
         users = []
         for row in cur.fetchall():
             user = User(
                 id=row[0],
                 name=row[1] or "",
-                preferred_username=row[2] or "",
-                given_name=row[3] or "",
-                family_name=row[4] or "",
-                email=row[5] or "",
-                created=row[6],
-                temp=row[7] or False,
-                organization=row[8] or "-"
+                given_name=row[2] or "",
+                email=row[3] or "",
+                organization=row[4] or "-"
             )
             users.append(user)
         
@@ -246,7 +236,7 @@ def get_user_details(connection_string: str, days: int = 7) -> List[User]:
 # ================================================================== #
 # Retrieval and Export
 # ================================================================== #
-def get_weekly_data(connection_string: Optional[str] = None, days: int = 7) -> Dict[str, Any]:
+def get_data(connection_string: Optional[str] = None, days: int = 7) -> Dict[str, Any]:
     try:
         # Load environment variables if needed
         if not connection_string:
@@ -280,7 +270,7 @@ def get_weekly_data(connection_string: Optional[str] = None, days: int = 7) -> D
 def export_weekly_data(output_file: str = "user_data_export.json", days: int = 7) -> str:
     try:
 
-        data = get_weekly_data(days=days)
+        data = get_data(days=days)
         
         with open(output_file, "w") as f:
             json.dump(data, f, indent=2)

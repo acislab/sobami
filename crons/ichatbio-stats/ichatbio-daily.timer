@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Daily iChatBio Usage Email Service
+Requires=ichatbio-daily.service
+
+[Timer]
+OnCalendar=*-*-* 13:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

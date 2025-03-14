@@ -2,6 +2,7 @@ from jinja2 import Template
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 from typing import List, Dict
+from enum import Enum
 
 @dataclass
 class Message:
@@ -20,47 +21,37 @@ class MessageMetric:
 class User:
     id: str
     name: str = ""
-    preferred_username: str = ""
     given_name: str = ""
-    family_name: str = ""
     email: str = ""
-    created: datetime = None
-    temp: bool = False
     organization: str = ""
 
-class WeeklyUsageSummary:
-    def __init__(self, weekly_data: Dict[str, Dict], users_data: List[User] = None):
-        self.weekly_data = weekly_data
+
+class UsageSummary:
+    def __init__(self, data: Dict[str, Dict], users_data: List[User] = None, kind='Weekly'):
+        self.data = data
         self.users_data = users_data or []
         self.message_metrics: Dict[str, MessageMetric] = {}
+        self.kind = kind
 
     def format_date(self, date: datetime) -> str:
         return date.strftime("%b %d, %Y at %I:%M %p")
 
     def get_reporting_period(self) -> Dict[str, str]:
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=7)
+        if self.kind == 'Weekly':
+            days = 7
+        else:
+            days = 1
 
+        start_date = datetime.now().date() - timedelta(days=days)
+        end_date = datetime.now().date() - timedelta(1)
         return {
             "start": start_date.strftime("%B %d, %Y"),
             "end": end_date.strftime("%B %d, %Y")
         }
 
-    def get_conversation_preview(self, messages: List[Message]) -> str:
-        if not messages:
-            return "No messages"
-
-        first_user_message = next((m for m in messages if m.type == "user_text_message"), None)
-        first_ai_response = next((m for m in messages if m.type == "ai_text_message"), None)
-
-        if first_user_message and first_ai_response:
-            return f'User: "{first_user_message.value[:30]}..." AI: "{first_ai_response.value[:30]}..."'
-        return ""
-
     def analyze_message_metrics(self) -> Dict[str, MessageMetric]:
         """Analyze and categorize message types."""
-        # Define default message types to track
-        default_metrics = {
+        metrics = {
             "user_text_message": MessageMetric(
                 type="user_text_message", 
                 description="Standard User Text Messages"
@@ -77,10 +68,10 @@ class WeeklyUsageSummary:
         }
 
         # Initialize metrics
-        self.message_metrics = default_metrics.copy()
+        self.message_metrics = metrics.copy()
 
         # Count messages across all users and their conversations
-        for user_id, user_data in self.weekly_data.items():
+        for user_id, user_data in self.data.items():
             for conv_id, conv_data in user_data.get("conversations", {}).items():
                 for message in conv_data.get("messages", []):
                     msg_type = message.get("type")
@@ -91,17 +82,17 @@ class WeeklyUsageSummary:
     
     def generate_html_email(self) -> str:
         period = self.get_reporting_period()
-        total_users = len(self.weekly_data)
+        total_users = len(self.data)
 
         total_messages = 0
-        for user_id, user_data in self.weekly_data.items():
+        for user_id, user_data in self.data.items():
             for conv_id, conv_data in user_data.get("conversations", {}).items():
                 total_messages += len(conv_data.get("messages", []))
 
         message_metrics = self.analyze_message_metrics()
 
         user_conversations = []
-        for user_id, user_data in self.weekly_data.items():
+        for user_id, user_data in self.data.items():
             for conv_id, conv_data in user_data.get("conversations", {}).items():
                 messages = [
                     Message(
@@ -118,9 +109,8 @@ class WeeklyUsageSummary:
                         "user_id": user_id,
                         "conversation_id": conv_id,
                         "username": user_id,  # Keeping existing field for compatibility
-                        "join_date": self.format_date(messages[0].created),
+                        "date": self.format_date(messages[0].created),
                         "message_count": len(messages),
-                        "preview": self.get_conversation_preview(messages),
                         "messages": messages
                     })
         total_conversation = len(user_conversations)
@@ -270,8 +260,12 @@ class WeeklyUsageSummary:
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>iChatBio - Weekly Summary: New User Activity</h1>
-                    <p><u>{{ period.start }} - {{ period.end }}</u></p>
+                    <h1>iChatBio - {{ kind }} Summary: New User Activity</h1>
+                    {% if kind == 'Weekly' %}
+                        <p><u>{{ period.start }} - {{ period.end }}</u></p>
+                    {% else %}
+                        <p><u>{{ period.start }}</u></p>
+                    {% endif %}
                 </div>
 
                 <div class="overview-section">
@@ -300,7 +294,7 @@ class WeeklyUsageSummary:
                     <thead>
                         <tr>
                             <th width="35%">Email</th>
-                            <th width="30%">Name</th>
+                            <th width="30%">Profile</th>
                             <th width="35%">Organization</th>
                         </tr>
                     </thead>
@@ -308,7 +302,11 @@ class WeeklyUsageSummary:
                         {% for user in users_data %}
                         <tr>
                             <td>{{ user.email }}</td>
-                            <td>{{ user.given_name }}</td>
+                            <td>
+                                <a href="https://ichatbio.org/admin#/user/{{ user.user_id }}" target="_blank">
+                                {{ user.given_name }}
+                                </a>
+                            </td>
                             <td>{{ user.organization }}</td>
                         </tr>
                         {% endfor %}
@@ -322,8 +320,8 @@ class WeeklyUsageSummary:
                         <div class="conversation-header">
                             <div class="id-info">
                                 <p><strong>Username:</strong> {{ conv.username }}</p>
-                                <p><strong>Joined:</strong> {{ conv.join_date }}</p>
                                 <p><strong>Conversation ID:</strong> {{ conv.conversation_id }}</p>
+                                <p><strong>Date:</strong> {{ conv.date }}</p>
                             </div>
                         </div>
                         <div class="message-count">{{ conv.message_count }} messages</div>
@@ -370,5 +368,6 @@ class WeeklyUsageSummary:
             user_conversations=user_conversations,
             total_conversations=total_conversation,
             users_data=self.users_data,
+            kind=self.kind,
             generation_date=datetime.now().strftime("%B %d, %Y")
         )

@@ -9,13 +9,19 @@ import time
 import os
 import json
 import sys
+import argparse
 
-from stats import get_weekly_data
+from stats import get_data
 sys.path.append('../')
-from templates.weekly_usage_summary import WeeklyUsageSummary
+from templates.usage_summary import UsageSummary
+
+parser = argparse.ArgumentParser('iChatBio Usage Summary Service')
+parser.add_argument('--kind', dest="kind", choices=['Daily', 'Weekly'], type=str, help='Choose a summary duration')
+args = parser.parse_args()
+kind = args.kind
 
 # Logging Setup
-log_file = 'ichatbio_email_service.weekly.log'
+log_file = 'ichatbio_email_service.log'
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -36,9 +42,10 @@ logger.info("=" * 50 + "\n")
 load_dotenv(".chat.env")
 logger.info("Loaded .chat.env")
 
-# Fetch weekly summary data
-data, users_data = get_weekly_data()
-logger.info("Weekly summary data fetched from DB")
+# Fetch summary data
+days = 1 if kind == 'Daily' else 7
+data, users_data = get_data(days=days)
+logger.info(f"{kind} summary data fetched from DB")
 
 # Load recipients list
 recipients_file = os.getenv("RECIPIENTS_FILE", "recipients.json")
@@ -53,8 +60,7 @@ if not recipients:
 logger.info(f"Sending email to {len(recipients)} recipients")
 
 # Generate email content
-print(data, users_data)
-email_generator = WeeklyUsageSummary(data, users_data)
+email_generator = UsageSummary(data, users_data, kind=kind)
 email_content = email_generator.generate_html_email()
 logger.info("Email generated")
 
@@ -63,7 +69,7 @@ message = MIMEMultipart("alternative")
 sender_name = os.getenv("EMAIL_FROM_NAME",)
 sender_email = os.getenv("EMAIL_FROM_EMAIL")
 message['From'] = formataddr((sender_name, sender_email))
-message['Subject'] = os.getenv("EMAIL_SUBJECT", "Weekly iChatBio Usage Summary")
+message['Subject'] = f"iChatBio - {kind} Summary"
 message['To'] = ", ".join(recipients)
 message.attach(MIMEText(email_content, "html"))
 

@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=/home/nitingoyal/crons/ichatbio-weekly
-ExecStart=/home/nitingoyal/crons/ichatbio-weekly/venv/bin/python3 /home/nitingoyal/crons/ichatbio-weekly/main.py
+WorkingDirectory=/home/nitingoyal/crons/ichatbio-stats
+ExecStart=/home/nitingoyal/crons/ichatbio-stats/venv/bin/python3 /home/nitingoyal/crons/ichatbio-stats/main.py --kind='Daily'
 User=nitingoyal
 Group=llms
 StandardOutput=append:/var/log/weekly-email.log
