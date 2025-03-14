@@ -234,7 +234,7 @@ def get_user_details(connection_string: str, days: int = 7) -> List[User]:
 # ================================================================== #
 # Retrieval and Export
 # ================================================================== #
-def get_weekly_data(connection_string: Optional[str] = None, days: int = 7) -> Dict[str, Any]:
+def get_data(connection_string: Optional[str] = None, days: int = 7) -> Dict[str, Any]:
     try:
         # Load environment variables if needed
         if not connection_string:
@@ -268,7 +268,7 @@ def get_weekly_data(connection_string: Optional[str] = None, days: int = 7) -> D
 def export_weekly_data(output_file: str = "user_data_export.json", days: int = 7) -> str:
     try:
 
-        data = get_weekly_data(days=days)
+        data = get_data(days=days)
         
         with open(output_file, "w") as f:
             json.dump(data, f, indent=2)

@@ -2,6 +2,7 @@ from jinja2 import Template
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 from typing import List, Dict
+from enum import Enum
 
 @dataclass
 class Message:
@@ -24,19 +25,24 @@ class User:
     email: str = ""
     organization: str = ""
 
-class WeeklyUsageSummary:
-    def __init__(self, weekly_data: Dict[str, Dict], users_data: List[User] = None):
-        self.weekly_data = weekly_data
+
+class UsageSummary:
+    def __init__(self, data: Dict[str, Dict], users_data: List[User] = None, kind='Weekly'):
+        self.data = data
         self.users_data = users_data or []
         self.message_metrics: Dict[str, MessageMetric] = {}
+        self.kind = kind
 
     def format_date(self, date: datetime) -> str:
         return date.strftime("%b %d, %Y at %I:%M %p")
 
     def get_reporting_period(self) -> Dict[str, str]:
+        if self.kind == 'Weekly':
+            days = 7
+        else:
+            days = 0
         end_date = datetime.now()
-        start_date = end_date - timedelta(days=7)
-
+        start_date = end_date - timedelta(days=days)
         return {
             "start": start_date.strftime("%B %d, %Y"),
             "end": end_date.strftime("%B %d, %Y")
@@ -44,8 +50,7 @@ class WeeklyUsageSummary:
 
     def analyze_message_metrics(self) -> Dict[str, MessageMetric]:
         """Analyze and categorize message types."""
-        # Define default message types to track
-        default_metrics = {
+        metrics = {
             "user_text_message": MessageMetric(
                 type="user_text_message", 
                 description="Standard User Text Messages"
@@ -62,10 +67,10 @@ class WeeklyUsageSummary:
         }
 
         # Initialize metrics
-        self.message_metrics = default_metrics.copy()
+        self.message_metrics = metrics.copy()
 
         # Count messages across all users and their conversations
-        for user_id, user_data in self.weekly_data.items():
+        for user_id, user_data in self.data.items():
             for conv_id, conv_data in user_data.get("conversations", {}).items():
                 for message in conv_data.get("messages", []):
                     msg_type = message.get("type")
@@ -76,17 +81,17 @@ class WeeklyUsageSummary:
     
     def generate_html_email(self) -> str:
         period = self.get_reporting_period()
-        total_users = len(self.weekly_data)
+        total_users = len(self.data)
 
         total_messages = 0
-        for user_id, user_data in self.weekly_data.items():
+        for user_id, user_data in self.data.items():
             for conv_id, conv_data in user_data.get("conversations", {}).items():
                 total_messages += len(conv_data.get("messages", []))
 
         message_metrics = self.analyze_message_metrics()
 
         user_conversations = []
-        for user_id, user_data in self.weekly_data.items():
+        for user_id, user_data in self.data.items():
             for conv_id, conv_data in user_data.get("conversations", {}).items():
                 messages = [
                     Message(
@@ -254,8 +259,12 @@ class WeeklyUsageSummary:
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>iChatBio - Weekly Summary: New User Activity</h1>
-                    <p><u>{{ period.start }} - {{ period.end }}</u></p>
+                    <h1>iChatBio - {{ kind }} Summary: New User Activity</h1>
+                    {% if kind == 'Weekly' %}
+                        <p><u>{{ period.start }} - {{ period.end }}</u></p>
+                    {% else %}
+                        <p><u>{{ period.end }}</u></p>
+                    {% endif %}
                 </div>
 
                 <div class="overview-section">
@@ -358,5 +367,6 @@ class WeeklyUsageSummary:
             user_conversations=user_conversations,
             total_conversations=total_conversation,
             users_data=self.users_data,
+            kind=self.kind,
             generation_date=datetime.now().strftime("%B %d, %Y")
         )
