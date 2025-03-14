@@ -40,9 +40,10 @@ class UsageSummary:
         if self.kind == 'Weekly':
             days = 7
         else:
-            days = 0
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
+            days = 1
+
+        start_date = datetime.now().date() - timedelta(days=days)
+        end_date = datetime.now().date() - timedelta(1)
         return {
             "start": start_date.strftime("%B %d, %Y"),
             "end": end_date.strftime("%B %d, %Y")
@@ -108,7 +109,7 @@ class UsageSummary:
                         "user_id": user_id,
                         "conversation_id": conv_id,
                         "username": user_id,  # Keeping existing field for compatibility
-                        "join_date": self.format_date(messages[0].created),
+                        "date": self.format_date(messages[0].created),
                         "message_count": len(messages),
                         "messages": messages
                     })
@@ -263,7 +264,7 @@ class UsageSummary:
                     {% if kind == 'Weekly' %}
                         <p><u>{{ period.start }} - {{ period.end }}</u></p>
                     {% else %}
-                        <p><u>{{ period.end }}</u></p>
+                        <p><u>{{ period.start }}</u></p>
                     {% endif %}
                 </div>
 
@@ -319,8 +320,8 @@ class UsageSummary:
                         <div class="conversation-header">
                             <div class="id-info">
                                 <p><strong>Username:</strong> {{ conv.username }}</p>
-                                <p><strong>Joined:</strong> {{ conv.join_date }}</p>
                                 <p><strong>Conversation ID:</strong> {{ conv.conversation_id }}</p>
+                                <p><strong>Date:</strong> {{ conv.date }}</p>
                             </div>
                         </div>
                         <div class="message-count">{{ conv.message_count }} messages</div>

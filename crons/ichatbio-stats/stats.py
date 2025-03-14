@@ -45,7 +45,8 @@ def get_new_users(connection_string: str, days: int = 7) -> Dict[str, str]:
         conn = get_db_connection(connection_string)
         cur = conn.cursor()
 
-        cutoff_date = datetime.now() - timedelta(days=days)
+        start_date = datetime.now().date() - timedelta(days=days)
+        end_date = datetime.now().date()
         
         query = """
         SELECT 
@@ -53,11 +54,11 @@ def get_new_users(connection_string: str, days: int = 7) -> Dict[str, str]:
             u.email AS user_email,
             u.given_name AS username
         FROM users u
-        WHERE u.created >= %s
+        WHERE u.created >= %s and u.created < %s
         ORDER BY u.created DESC;
         """
         
-        cur.execute(query, (cutoff_date,))
+        cur.execute(query, (start_date, end_date))
         
         # Create user mapping
         user_map = {}
@@ -134,7 +135,7 @@ def get_nested_data(user_map: Dict[str, str], connection_string: str) -> Dict[st
         JOIN conversations c ON u.id = c.user_id
         JOIN messages m ON c.id = m.conversation_id
         WHERE u.id = ANY(%s)
-        ORDER BY u.id, c.created, m.created;
+        ORDER BY c.created DESC;
         """
 
         cur.execute(query, (user_ids,))
@@ -193,7 +194,8 @@ def get_user_details(connection_string: str, days: int = 7) -> List[User]:
     try:
         conn = get_db_connection(connection_string)
         cur = conn.cursor()
-        cutoff_date = datetime.now() - timedelta(days=days)
+        start_date = datetime.now().date() - timedelta(days=days)
+        end_date = datetime.now().date()
         
         query = """
         SELECT 
@@ -203,11 +205,11 @@ def get_user_details(connection_string: str, days: int = 7) -> List[User]:
             email, 
             organization
         FROM users
-        WHERE created >= %s
+        WHERE created >= %s and created < %s
         ORDER BY created DESC;
         """
         
-        cur.execute(query, (cutoff_date,))
+        cur.execute(query, (start_date, end_date))
         
         users = []
         for row in cur.fetchall():
