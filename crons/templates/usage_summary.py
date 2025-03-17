@@ -255,6 +255,14 @@ class UsageSummary:
                 font-size: 1.1rem; 
                 margin: 1rem 0 0.75rem 0;
             }
+            .empty {
+                width: full;
+                display: flex;
+                justify-content: center;
+                color: #666;
+                align-items: center;
+                font-size: 1.1rem;
+            }
             </style>
         </head>
         <body>
@@ -267,89 +275,94 @@ class UsageSummary:
                         <p><u>{{ period.start }}</u></p>
                     {% endif %}
                 </div>
-
-                <div class="overview-section">
-                    <div class="overview-stats">
-                        <div class="stat">
-                            <div class="stat-value">{{ total_users }}</div>
-                            <div class="stat-label">Sign Ups</div>
-                        </div>
-                        <div class="stat">
-                            <div class="stat-value">{{ total_conversations }}</div>
-                            <div class="stat-label">Conversations</div>
-                        </div>
-                        <div class="stat">
-                            <div class="stat-value">{{ total_messages }}</div>
-                            <div class="stat-label">Messages</div>
-                        </div>
-                        <div class="stat">
-                            <div class="stat-value">{{ (total_messages / total_users)|round(1) }}</div>
-                            <div class="stat-label">Avg. Messages/User</div>
-                        </div>
-                    </div>
-                </div>
-
-                <h2>New Users</h2>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th width="35%">Email</th>
-                            <th width="30%">Profile</th>
-                            <th width="35%">Organization</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for user in users_data %}
-                        <tr>
-                            <td>{{ user.email }}</td>
-                            <td>
-                                <a href="https://ichatbio.org/admin#/user/{{ user.user_id }}" target="_blank">
-                                {{ user.given_name }}
-                                </a>
-                            </td>
-                            <td>{{ user.organization }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-
-                <h2>User Conversations</h2>
-                <div class="new-conversations">
-                    {% for conv in user_conversations %}
-                    <div class="conversation-card">
-                        <div class="conversation-header">
-                            <div class="id-info">
-                                <p><strong>Username:</strong> {{ conv.username }}</p>
-                                <p><strong>Conversation ID:</strong> {{ conv.conversation_id }}</p>
-                                <p><strong>Date:</strong> {{ conv.date }}</p>
+                {% if total_users > 0 %}
+                    <div class="overview-section">
+                        <div class="overview-stats">
+                            <div class="stat">
+                                <div class="stat-value">{{ total_users }}</div>
+                                <div class="stat-label">Sign Ups</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">{{ total_conversations }}</div>
+                                <div class="stat-label">Conversations</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">{{ total_messages }}</div>
+                                <div class="stat-label">Messages</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">{{ (total_messages / total_users)|round(1) }}</div>
+                                <div class="stat-label">Avg. Messages/User</div>
                             </div>
                         </div>
-                        <div class="message-count">{{ conv.message_count }} messages</div>
                     </div>
-                    {% endfor %}
-                </div>
 
-                <div class="metrics-section overview-section">
-                    <h2>Messaging Metrics</h2>
+                    <h2>New Users</h2>
                     <table class="table">
                         <thead>
                             <tr>
-                                <th width="30%">Message Type</th>
-                                <th width="20%">Count</th>
-                                <th width="50%">Description</th>
+                                <th width="35%">Email</th>
+                                <th width="30%">Profile</th>
+                                <th width="35%">Organization</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for type, metric in message_metrics.items() %}
+                            {% for user in users_data %}
                             <tr>
-                                <td>{{ type }}</td>
-                                <td>{{ metric.count }}</td>
-                                <td>{{ metric.description }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>
+                                    <a href="https://ichatbio.org/admin#/user/{{ user.user_id }}" target="_blank">
+                                    {{ user.given_name }}
+                                    </a>
+                                </td>
+                                <td>{{ user.organization }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
+
+                    <h2>User Conversations</h2>
+                    <div class="new-conversations">
+                        {% for conv in user_conversations %}
+                        <div class="conversation-card">
+                            <div class="conversation-header">
+                                <div class="id-info">
+                                    <p><strong>Username:</strong> {{ conv.username }}</p>
+                                    <p><strong>Conversation ID:</strong> {{ conv.conversation_id }}</p>
+                                    <p><strong>Date:</strong> {{ conv.date }}</p>
+                                </div>
+                            </div>
+                            <div class="message-count">{{ conv.message_count }} messages</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="metrics-section overview-section">
+                        <h2>Messaging Metrics</h2>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th width="30%">Message Type</th>
+                                    <th width="20%">Count</th>
+                                    <th width="50%">Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for type, metric in message_metrics.items() %}
+                                <tr>
+                                    <td>{{ type }}</td>
+                                    <td>{{ metric.count }}</td>
+                                    <td>{{ metric.description }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                <div class="empty">
+                    <p>No new user signed up</p>
                 </div>
+                {% endif %}
                 <div class="footer">
                     <p>This is an automated summary generated on {{ generation_date }}</p>
                     <p>&copy; 2025 <a href="https://www.acis.ufl.edu" target="_blank">www.acis.ufl.edu</a></p>         
