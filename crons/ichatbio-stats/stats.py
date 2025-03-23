@@ -4,18 +4,8 @@ import json
 import logging
 import os
 import psycopg2
-from typing import Dict, Any, Optional, List
-from dataclasses import dataclass
+from typing import Dict, Any
 
-logger = logging.getLogger('ichatbio_email_service.weekly.log')
-
-@dataclass
-class User:
-    id: str
-    name: str = ""
-    given_name: str = ""
-    email: str = ""
-    organization: str = ""
 
 # ================================================================== #
 # Queries
@@ -32,13 +22,11 @@ def get_db_connection(connection_string: str) -> psycopg2.extensions.connection:
 def get_new_users(db, period: Dict[str, datetime]) -> Dict[str, str]:
     """
     Fetch users who registered within the last specified number of days.
-    Returns a dictionary mapping user_id to username/email.
-    
     Args:
         db: database cursor to execute queries
         period: {start_date, end_date}
     Returns:
-        Dictionary with user_id as keys and display names as values
+        Array of user objects
     """
     try:
 
@@ -46,165 +34,82 @@ def get_new_users(db, period: Dict[str, datetime]) -> Dict[str, str]:
         SELECT 
             u.id AS user_id, 
             u.email AS user_email,
-            u.given_name AS username
-        FROM users u
-        WHERE u.created >= %s and u.created < %s
-        ORDER BY u.created DESC;
+            u.given_name AS username,
+            u.organization AS organization
+        FROM 
+            users u
+        WHERE 
+            u.created >= %s 
+            AND u.created < %s
+        ORDER BY 
+            u.created DESC;
         """
         db.execute(query, (period["start_date"], period["end_date"]))
 
-        user_map = {}
-        # TODO: either use user_id or username
-        for user_id, user_email, username in db.fetchall():
+        users = []
+        for row in db.fetchall():
+            user_id, user_email, username, organization = row
             # Use username if available, otherwise email
             display_name = username if username else user_email
-            user_map[user_id] = display_name
+            users.append({
+                "user_id": user_id,
+                "username": username,
+                "user_email": user_email,
+                "organization": organization
+            })
 
-        return user_map
+        return users
 
     except Exception as e:
         logger.error(f"Error fetching new users: {e}")
         raise
 
 
-def get_nested_data(user_map: Dict[str, str], db) -> Dict[str, Any]:
+def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
     """
-    Queries the database for conversations and messages linked to each user_id
-    and returns a nested JSON structure with usernames.
-
-    Messages are sorted in order of creation.
-    
     Args:
-        user_map: Dictionary mapping user_ids to display names
-        connection_string: PostgreSQL connection string
-        
+        db: database cursor to execute queries
+        period: {start_date, end_date}
     Returns:
-        Nested dictionary with conversation data organized by user
-        
-    Structure:
-    {
-      "username": {
-        "conversations": {
-          "conversation_id": {
-            "messages": [
-              {
-                "id": "message_id",
-                "type": "message_type",
-                "value": "message_content",
-                "created": "timestamp"
-              },
-              ...
-            ]
-          }
-        }
-      }
-    }
+        Array of conversation objects sorted by last_message_created
     """
     try:
-        # Check if we have users to process
-        if not user_map:
-            logger.warning("No users provided to process")
-            return {}
-
-        user_ids = list(user_map.keys())
-        
-        logger.info(f"Querying conversations for {len(user_ids)} users")
-
         query = """
         SELECT 
-            u.id AS user_id,
+            c.user_id,
             c.id AS conversation_id,
-            m.id AS message_id,
-            m.frontend_messages,
-            m.created AS message_created
-        FROM users u
-        JOIN conversations c ON u.id = c.user_id
-        JOIN messages m ON c.id = m.conversation_id
-        WHERE u.id = ANY(%s)
-        ORDER BY c.created DESC;
+            COUNT(m.id) AS user_messages_count,
+            MAX(m.created) AS last_message_created
+        FROM 
+            conversations c
+        LEFT JOIN messages m 
+            ON c.id = m.conversation_id
+            AND m.type = 'user_text_message'
+        WHERE
+            c.created >= %s
+            AND c.created < %s
+        GROUP BY 
+            c.id, c.user_id
+        ORDER BY
+            MAX(c.created) DESC;
         """
 
-        db.execute(query, (user_ids,))
+        db.execute(query, (period["start_date"],period["end_date"]))
 
-        result = {}
-        message_count = 0
+        result = []
         for row in db.fetchall():
-            user_id, conv_id, msg_id, frontend_msgs, msg_created = row
-            
-            # Get username or use user_id if not found
-            username = user_map.get(user_id, user_id)
-            # Parse the frontend_msgs JSON
-            msg_data = frontend_msgs if frontend_msgs else {}
-            msg_type = msg_data.get('type', 'unknown_type')
-            msg_value = msg_data.get('value', '')
-
-            if username not in result:
-                result[username] = {"conversations": {}}
-            if conv_id not in result[username]["conversations"]:
-                result[username]["conversations"][conv_id] = {"messages": []}
-
-            result[username]["conversations"][conv_id]["messages"].append({
-                "id": msg_id,
-                "type": msg_type,
-                "value": msg_value,
-                "created": msg_created.isoformat() if msg_created else None
-            })
-            message_count += 1
-
-        user_count = len(result)
-        conversation_count = sum(len(user_data.get("conversations", {})) for user_data in result.values())
-
-        logger.info(f"Retrieved {message_count} messages across {conversation_count} conversations for {user_count} users")
-        
+            user_id, conv_id, user_messages_count, last_message_created = row
+            object = {
+                "user_id": user_id,
+                "conv_id": conv_id,
+                "user_messages_count": user_messages_count,
+                "last_message_created": last_message_created
+            }
+            result.append(object)
         return result
         
     except Exception as e:
         logger.error(f"Error retrieving conversation data: {e}")
-        raise
-
-
-def get_user_details(db, period: Dict[str, datetime]) -> List[User]:
-    """
-    Fetch detailed user information for users who registered within the last specified number of days.
-    
-    Args:
-        connection_string: PostgreSQL connection string
-        days: Number of days to look back
-        
-    Returns:
-        List of User objects
-    """
-    try:
-        query = """
-        SELECT 
-            id, 
-            name, 
-            given_name, 
-            email, 
-            organization
-        FROM users
-        WHERE created >= %s and created < %s
-        ORDER BY created DESC;
-        """
-
-        db.execute(query, (period["start_date"], period["end_date"]))
-
-        users = []
-        for row in db.fetchall():
-            user = User(
-                id=row[0],
-                name=row[1] or "",
-                given_name=row[2] or "",
-                email=row[3] or "",
-                organization=row[4] or "-"
-            )
-            users.append(user)
-
-        logger.info(f"Retrieved detailed information for {len(users)} users")
-        return users
-    
-    except Exception as e:
-        logger.error(f"Error fetching detailed user information: {e}")
         raise
 
 
@@ -213,8 +118,6 @@ def get_user_details(db, period: Dict[str, datetime]) -> List[User]:
 # ================================================================== #
 def get_data(days: int = 7) -> Dict[str, Any]:
     try:
-        
-        # Build connection string from environment variables
         db_user = os.getenv("PG_USER")
         db_pass = os.getenv("PG_PASS")
         db_host = os.getenv("PG_HOST")
@@ -223,41 +126,44 @@ def get_data(days: int = 7) -> Dict[str, Any]:
         
         if not all([db_user, db_pass, db_host, db_port, db_name]):
             raise ValueError("Missing database connection parameters in environment variables")
-            
-        connection_string = (
-            f"postgresql://{db_user}:{db_pass}@{db_host}:"
-            f"{db_port}/{db_name}?sslmode=disable"
-        )
 
         period = {
             "start_date": datetime.now().date() - timedelta(days=days),
             "end_date": datetime.now().date()
         }
 
-        db = get_db_connection(connection_string)
-        cur = db.cursor()
+        connection_string = (
+            f"postgresql://{db_user}:{db_pass}@{db_host}:"
+            f"{db_port}/{db_name}?sslmode=disable"
+        )
+        conn = get_db_connection(connection_string)
+        db = conn.cursor()
 
-        user_map = get_new_users(cur, period)
-        data = get_nested_data(user_map, cur)
-        detailed_users = get_user_details(cur, period)
-        print(user_map, data, detailed_users)
-        cur.close()
+        new_users = get_new_users(db, period)
+        conversations = get_conversations(db, period)
+
         db.close()
+        conn.close()
 
-        return data, detailed_users
-        
+        return conversations, new_users
     except Exception as e:
-        logger.error(f"Failed to retrieve weekly data: {e}")
+        logger.error(f"Failed to retrieve data: {e}")
         raise
 
 
-def export_weekly_data(output_file: str = "user_data_export.json", days: int = 7) -> str:
+# ================================================================== #
+# Test/Export data into JSON
+# ================================================================== #
+def export_weekly_data(output_file: str = "user_data_export.json") -> str:
     try:
+        conversations, users = get_data(days=7)
+        data = {
+            "conversations": conversations,
+            "new_users": users
+        }
 
-        data = get_data(days=days)
-        
         with open(output_file, "w") as f:
-            json.dump(data, f, indent=2)
+            json.dump(data, f, indent=2, default=str)
             
         logger.info(f"Data successfully exported to {output_file}")
         return output_file
@@ -267,12 +173,15 @@ def export_weekly_data(output_file: str = "user_data_export.json", days: int = 7
         raise
 
 
-# ================================================================== #
-# For testing purposes when run directly
-# ================================================================== #
 if __name__ == "__main__":
     try:
-        # This is just for testing when run directly
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(asctime)s - %(levelname)s - %(message)s",
+            handlers=[logging.StreamHandler()]
+        )
+        logger = logging.getLogger(__name__)
+
         load_dotenv(".chat.env")
         logger.info("Running in standalone mode for testing")
         
