@@ -109,7 +109,7 @@ def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
         for row in db.fetchall():
             conversation = {
                 "user_id": row[0],
-                "user_name": row[1],
+                "username": row[1],
                 "conv_id": row[2],
                 "total_message_count": row[3],
                 "last_message_created": row[-1]
