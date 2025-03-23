@@ -53,7 +53,7 @@ def get_new_users(db, period: Dict[str, datetime]) -> Dict[str, str]:
             display_name = username if username else user_email
             users.append({
                 "user_id": user_id,
-                "username": username,
+                "username": display_name,
                 "user_email": user_email,
                 "organization": organization
             })
@@ -74,17 +74,23 @@ def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
         Array of conversation objects sorted by last_message_created
     """
     try:
+        db.execute("SELECT DISTINCT type FROM messages;")
+        message_types = [row[0] for row in db.fetchall()]
+        # dynamic query to retrieve all message type count
         query = """
         SELECT 
             c.user_id,
             c.id AS conversation_id,
-            COUNT(m.id) AS user_messages_count,
+            COUNT(m.id) AS total_messages_count
+        """
+        for type in message_types:
+            query += f", COUNT(CASE WHEN m.type = '{type}' THEN 1 END)AS {type}_count"
+        query += """,
             MAX(m.created) AS last_message_created
         FROM 
             conversations c
         LEFT JOIN messages m 
             ON c.id = m.conversation_id
-            AND m.type = 'user_text_message'
         WHERE
             c.created >= %s
             AND c.created < %s
@@ -96,17 +102,18 @@ def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
 
         db.execute(query, (period["start_date"],period["end_date"]))
 
-        result = []
+        conversations = []
         for row in db.fetchall():
-            user_id, conv_id, user_messages_count, last_message_created = row
-            object = {
-                "user_id": user_id,
-                "conv_id": conv_id,
-                "user_messages_count": user_messages_count,
-                "last_message_created": last_message_created
+            conversation = {
+                "user_id": row[0],
+                "conv_id": row[1],
+                "total_message_count": row[2],
+                "last_message_created": row[-1]
             }
-            result.append(object)
-        return result
+            for i in range(len(message_types)):
+                conversation[message_types[i]] = row[i + 3]
+            conversations.append(conversation)
+        return conversations
         
     except Exception as e:
         logger.error(f"Error retrieving conversation data: {e}")
@@ -156,7 +163,8 @@ def get_data(days: int = 7) -> Dict[str, Any]:
 # ================================================================== #
 def export_weekly_data(output_file: str = "user_data_export.json") -> str:
     try:
-        conversations, users = get_data(days=7)
+        days = 3
+        conversations, users = get_data(days)
         data = {
             "conversations": conversations,
             "new_users": users
