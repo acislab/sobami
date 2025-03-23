@@ -29,25 +29,19 @@ def get_db_connection(connection_string: str) -> psycopg2.extensions.connection:
         raise
 
 
-def get_new_users(connection_string: str, days: int = 7) -> Dict[str, str]:
+def get_new_users(db, period: Dict[str, datetime]) -> Dict[str, str]:
     """
     Fetch users who registered within the last specified number of days.
     Returns a dictionary mapping user_id to username/email.
     
     Args:
-        connection_string: PostgreSQL connection string
-        days: Number of days to look back
-        
+        db: database cursor to execute queries
+        period: {start_date, end_date}
     Returns:
         Dictionary with user_id as keys and display names as values
     """
     try:
-        conn = get_db_connection(connection_string)
-        cur = conn.cursor()
 
-        start_date = datetime.now().date() - timedelta(days=days)
-        end_date = datetime.now().date()
-        
         query = """
         SELECT 
             u.id AS user_id, 
@@ -57,28 +51,23 @@ def get_new_users(connection_string: str, days: int = 7) -> Dict[str, str]:
         WHERE u.created >= %s and u.created < %s
         ORDER BY u.created DESC;
         """
-        
-        cur.execute(query, (start_date, end_date))
-        
-        # Create user mapping
+        db.execute(query, (period["start_date"], period["end_date"]))
+
         user_map = {}
-        for user_id, user_email, username in cur.fetchall():
+        # TODO: either use user_id or username
+        for user_id, user_email, username in db.fetchall():
             # Use username if available, otherwise email
             display_name = username if username else user_email
             user_map[user_id] = display_name
-        
-        cur.close()
-        conn.close()
-        
-        logger.info(f"Found {len(user_map)} new users in the last {days} days")
+
         return user_map
-    
+
     except Exception as e:
         logger.error(f"Error fetching new users: {e}")
         raise
 
 
-def get_nested_data(user_map: Dict[str, str], connection_string: str) -> Dict[str, Any]:
+def get_nested_data(user_map: Dict[str, str], db) -> Dict[str, Any]:
     """
     Queries the database for conversations and messages linked to each user_id
     and returns a nested JSON structure with usernames.
@@ -116,9 +105,6 @@ def get_nested_data(user_map: Dict[str, str], connection_string: str) -> Dict[st
         if not user_map:
             logger.warning("No users provided to process")
             return {}
-            
-        conn = get_db_connection(connection_string)
-        cur = conn.cursor()
 
         user_ids = list(user_map.keys())
         
@@ -138,11 +124,11 @@ def get_nested_data(user_map: Dict[str, str], connection_string: str) -> Dict[st
         ORDER BY c.created DESC;
         """
 
-        cur.execute(query, (user_ids,))
+        db.execute(query, (user_ids,))
 
         result = {}
         message_count = 0
-        for row in cur.fetchall():
+        for row in db.fetchall():
             user_id, conv_id, msg_id, frontend_msgs, msg_created = row
             
             # Get username or use user_id if not found
@@ -165,9 +151,6 @@ def get_nested_data(user_map: Dict[str, str], connection_string: str) -> Dict[st
             })
             message_count += 1
 
-        cur.close()
-        conn.close()
-
         user_count = len(result)
         conversation_count = sum(len(user_data.get("conversations", {})) for user_data in result.values())
 
@@ -180,7 +163,7 @@ def get_nested_data(user_map: Dict[str, str], connection_string: str) -> Dict[st
         raise
 
 
-def get_user_details(connection_string: str, days: int = 7) -> List[User]:
+def get_user_details(db, period: Dict[str, datetime]) -> List[User]:
     """
     Fetch detailed user information for users who registered within the last specified number of days.
     
@@ -192,11 +175,6 @@ def get_user_details(connection_string: str, days: int = 7) -> List[User]:
         List of User objects
     """
     try:
-        conn = get_db_connection(connection_string)
-        cur = conn.cursor()
-        start_date = datetime.now().date() - timedelta(days=days)
-        end_date = datetime.now().date()
-        
         query = """
         SELECT 
             id, 
@@ -208,11 +186,11 @@ def get_user_details(connection_string: str, days: int = 7) -> List[User]:
         WHERE created >= %s and created < %s
         ORDER BY created DESC;
         """
-        
-        cur.execute(query, (start_date, end_date))
-        
+
+        db.execute(query, (period["start_date"], period["end_date"]))
+
         users = []
-        for row in cur.fetchall():
+        for row in db.fetchall():
             user = User(
                 id=row[0],
                 name=row[1] or "",
@@ -221,10 +199,7 @@ def get_user_details(connection_string: str, days: int = 7) -> List[User]:
                 organization=row[4] or "-"
             )
             users.append(user)
-        
-        cur.close()
-        conn.close()
-        
+
         logger.info(f"Retrieved detailed information for {len(users)} users")
         return users
     
@@ -236,30 +211,39 @@ def get_user_details(connection_string: str, days: int = 7) -> List[User]:
 # ================================================================== #
 # Retrieval and Export
 # ================================================================== #
-def get_data(connection_string: Optional[str] = None, days: int = 7) -> Dict[str, Any]:
+def get_data(days: int = 7) -> Dict[str, Any]:
     try:
-        # Load environment variables if needed
-        if not connection_string:
-            
-            # Build connection string from environment variables
-            db_user = os.getenv("PG_USER")
-            db_pass = os.getenv("PG_PASS")
-            db_host = os.getenv("PG_HOST")
-            db_port = os.getenv("PG_PORT")
-            db_name = os.getenv("PG_DB")
-            
-            if not all([db_user, db_pass, db_host, db_port, db_name]):
-                raise ValueError("Missing database connection parameters in environment variables")
-                
-            connection_string = (
-                f"postgresql://{db_user}:{db_pass}@{db_host}:"
-                f"{db_port}/{db_name}?sslmode=disable"
-            )
-
-        user_map = get_new_users(connection_string, days)
-        data = get_nested_data(user_map, connection_string)
-        detailed_users = get_user_details(connection_string, days)
         
+        # Build connection string from environment variables
+        db_user = os.getenv("PG_USER")
+        db_pass = os.getenv("PG_PASS")
+        db_host = os.getenv("PG_HOST")
+        db_port = os.getenv("PG_PORT")
+        db_name = os.getenv("PG_DB")
+        
+        if not all([db_user, db_pass, db_host, db_port, db_name]):
+            raise ValueError("Missing database connection parameters in environment variables")
+            
+        connection_string = (
+            f"postgresql://{db_user}:{db_pass}@{db_host}:"
+            f"{db_port}/{db_name}?sslmode=disable"
+        )
+
+        period = {
+            "start_date": datetime.now().date() - timedelta(days=days),
+            "end_date": datetime.now().date()
+        }
+
+        db = get_db_connection(connection_string)
+        cur = db.cursor()
+
+        user_map = get_new_users(cur, period)
+        data = get_nested_data(user_map, cur)
+        detailed_users = get_user_details(cur, period)
+        print(user_map, data, detailed_users)
+        cur.close()
+        db.close()
+
         return data, detailed_users
         
     except Exception as e:
