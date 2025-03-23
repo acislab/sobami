@@ -110,8 +110,10 @@ def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
                 "total_message_count": row[2],
                 "last_message_created": row[-1]
             }
+            counts = {}
             for i in range(len(message_types)):
-                conversation[message_types[i]] = row[i + 3]
+                counts[message_types[i]] = row[i + 3]
+            conversation["counts"] = counts
             conversations.append(conversation)
         return conversations
         
