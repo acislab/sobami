@@ -80,6 +80,7 @@ def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
         query = """
         SELECT 
             c.user_id,
+            u.given_name,
             c.id AS conversation_id,
             COUNT(m.id) AS total_messages_count
         """
@@ -89,13 +90,15 @@ def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
             MAX(m.created) AS last_message_created
         FROM 
             conversations c
+        JOIN users u
+            ON u.id = c.user_id
         LEFT JOIN messages m 
             ON c.id = m.conversation_id
         WHERE
             c.created >= %s
             AND c.created < %s
         GROUP BY 
-            c.id, c.user_id
+            c.id, c.user_id, u.given_name
         ORDER BY
             MAX(c.created) DESC;
         """
@@ -106,8 +109,9 @@ def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
         for row in db.fetchall():
             conversation = {
                 "user_id": row[0],
-                "conv_id": row[1],
-                "total_message_count": row[2],
+                "user_name": row[1],
+                "conv_id": row[2],
+                "total_message_count": row[3],
                 "last_message_created": row[-1]
             }
             counts = {}
