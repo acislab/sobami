@@ -5,31 +5,30 @@ from typing import List, Dict
 from enum import Enum
 
 @dataclass
-class Message:
-    id: str
-    type: str
-    value: str
-    created: datetime
+class Conversation:
+    user_id: str
+    username: str
+    conv_id: str
+    total_message_count: int
+    last_message_created: datetime
+    counts: Dict[str, int]
 
 @dataclass
 class MessageMetric:
     type: str
     count: int = 0
-    description: str = ""
 
 @dataclass
 class User:
-    id: str
-    name: str = ""
-    given_name: str = ""
-    email: str = ""
+    user_id: str
+    username: str = ""
+    user_email: str = ""
     organization: str = ""
 
-
 class UsageSummary:
-    def __init__(self, data: Dict[str, Dict], users_data: List[User] = None, kind='Weekly'):
-        self.data = data
-        self.users_data = users_data or []
+    def __init__(self, conversations: List[Conversation], users: List[User] = None, kind='Weekly'):
+        self.conversations = conversations or []
+        self.users = users or []
         self.message_metrics: Dict[str, MessageMetric] = {}
         self.kind = kind
 
@@ -50,70 +49,27 @@ class UsageSummary:
         }
 
     def analyze_message_metrics(self) -> Dict[str, MessageMetric]:
-        """Analyze and categorize message types."""
-        metrics = {
-            "user_text_message": MessageMetric(
-                type="user_text_message", 
-                description="Standard User Text Messages"
-            ),
-            "ai_text_message": MessageMetric(
-                type="ai_text_message", 
-                description="Standard AI Responses"
-            ),
-            "ai_processing_message": MessageMetric(
-                type="ai_processing_message",
-                description="AI Processing Messages"
-            )
-            # Add more metrics if needed
-        }
+        metrics: Dict[str, MessageMetric] = {}
+        for conv in self.conversations:
+            for message_type, count in conv["counts"].items():
+                if message_type not in metrics:
+                    metrics[message_type] = MessageMetric(
+                        type=message_type,
+                        count=count,
+                    )
+                else:
+                    metrics[message_type].count += count
 
-        # Initialize metrics
         self.message_metrics = metrics.copy()
-
-        # Count messages across all users and their conversations
-        for user_id, user_data in self.data.items():
-            for conv_id, conv_data in user_data.get("conversations", {}).items():
-                for message in conv_data.get("messages", []):
-                    msg_type = message.get("type")
-                    if msg_type in self.message_metrics:
-                        self.message_metrics[msg_type].count += 1
-
         return self.message_metrics
     
-    def generate_html_email(self) -> str:
-        period = self.get_reporting_period()
-        total_users = len(self.data)
-
+    def get_total_messages(self):
         total_messages = 0
-        for user_id, user_data in self.data.items():
-            for conv_id, conv_data in user_data.get("conversations", {}).items():
-                total_messages += len(conv_data.get("messages", []))
-
-        message_metrics = self.analyze_message_metrics()
-
-        user_conversations = []
-        for user_id, user_data in self.data.items():
-            for conv_id, conv_data in user_data.get("conversations", {}).items():
-                messages = [
-                    Message(
-                        id=msg.get("id", ""),
-                        type=msg.get("type", ""),
-                        value=msg.get("value", ""),
-                        created=datetime.fromisoformat(msg.get("created", datetime.now().isoformat()))
-                    )
-                    for msg in conv_data.get("messages", [])
-                ]
-                
-                if messages:
-                    user_conversations.append({
-                        "user_id": user_id,
-                        "conversation_id": conv_id,
-                        "username": user_id,  # Keeping existing field for compatibility
-                        "date": self.format_date(messages[0].created),
-                        "message_count": len(messages),
-                        "messages": messages
-                    })
-        total_conversation = len(user_conversations)
+        for conv in self.conversations:
+            total_messages += conv["counts"]["user_text_message"]
+        return total_messages
+    
+    def generate_html_email(self) -> str:
 
         # Jinja2 HTML template
         template_str = """
@@ -255,19 +211,26 @@ class UsageSummary:
                 font-size: 1.1rem; 
                 margin: 1rem 0 0.75rem 0;
             }
+            .empty {
+                width: full;
+                display: flex;
+                justify-content: center;
+                color: #666;
+                align-items: center;
+                font-size: 1.1rem;
+            }
             </style>
         </head>
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>iChatBio - {{ kind }} Summary: New User Activity</h1>
+                    <h1>iChatBio - {{ kind }} User Activity</h1>
                     {% if kind == 'Weekly' %}
                         <p><u>{{ period.start }} - {{ period.end }}</u></p>
                     {% else %}
                         <p><u>{{ period.start }}</u></p>
                     {% endif %}
                 </div>
-
                 <div class="overview-section">
                     <div class="overview-stats">
                         <div class="stat">
@@ -276,15 +239,11 @@ class UsageSummary:
                         </div>
                         <div class="stat">
                             <div class="stat-value">{{ total_conversations }}</div>
-                            <div class="stat-label">Conversations</div>
+                            <div class="stat-label">New Conversations</div>
                         </div>
                         <div class="stat">
                             <div class="stat-value">{{ total_messages }}</div>
-                            <div class="stat-label">Messages</div>
-                        </div>
-                        <div class="stat">
-                            <div class="stat-value">{{ (total_messages / total_users)|round(1) }}</div>
-                            <div class="stat-label">Avg. Messages/User</div>
+                            <div class="stat-label">User Messages</div>
                         </div>
                     </div>
                 </div>
@@ -299,12 +258,12 @@ class UsageSummary:
                         </tr>
                     </thead>
                     <tbody>
-                        {% for user in users_data %}
+                        {% for user in users %}
                         <tr>
-                            <td>{{ user.email }}</td>
+                            <td>{{ user.user_email }}</td>
                             <td>
                                 <a href="https://ichatbio.org/admin#/user/{{ user.user_id }}" target="_blank">
-                                {{ user.given_name }}
+                                {{ user.username }}
                                 </a>
                             </td>
                             <td>{{ user.organization }}</td>
@@ -315,16 +274,20 @@ class UsageSummary:
 
                 <h2>User Conversations</h2>
                 <div class="new-conversations">
-                    {% for conv in user_conversations %}
+                    {% for conv in conversations %}
                     <div class="conversation-card">
                         <div class="conversation-header">
                             <div class="id-info">
-                                <p><strong>Username:</strong> {{ conv.username }}</p>
-                                <p><strong>Conversation ID:</strong> {{ conv.conversation_id }}</p>
-                                <p><strong>Date:</strong> {{ conv.date }}</p>
+                                <p><strong>User:</strong> 
+                                    <a href="https://ichatbio.org/admin#/user/{{ conv.user_id }}" target="_blank">
+                                    <u>{{ conv.username }}</u>
+                                    </a>
+                                </p>
+                                <p><strong>Conversation ID:</strong> {{ conv.conv_id }}</p>
+                                <p><strong>Date:</strong> {{ conv.last_message_created }}</p>
                             </div>
                         </div>
-                        <div class="message-count">{{ conv.message_count }} messages</div>
+                        <div class="message-count">{{ conv.counts["user_text_message"] }} user messages</div>
                     </div>
                     {% endfor %}
                 </div>
@@ -334,9 +297,8 @@ class UsageSummary:
                     <table class="table">
                         <thead>
                             <tr>
-                                <th width="30%">Message Type</th>
-                                <th width="20%">Count</th>
-                                <th width="50%">Description</th>
+                                <th width="70%">Message Type</th>
+                                <th width="30%">Count</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -344,7 +306,6 @@ class UsageSummary:
                             <tr>
                                 <td>{{ type }}</td>
                                 <td>{{ metric.count }}</td>
-                                <td>{{ metric.description }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -361,13 +322,13 @@ class UsageSummary:
 
         template = Template(template_str)
         return template.render(
-            period=period,
-            total_users=total_users,
-            total_messages=total_messages,
-            message_metrics=message_metrics,
-            user_conversations=user_conversations,
-            total_conversations=total_conversation,
-            users_data=self.users_data,
+            period=self.get_reporting_period(),
+            total_users=len(self.users),
+            total_messages=self.get_total_messages(),
+            message_metrics=self.analyze_message_metrics(),
+            users=self.users,
+            total_conversations=len(self.conversations),
+            conversations=self.conversations,
             kind=self.kind,
             generation_date=datetime.now().strftime("%B %d, %Y")
         )

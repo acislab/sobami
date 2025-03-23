@@ -43,8 +43,11 @@ load_dotenv(".chat.env")
 logger.info("Loaded .chat.env")
 
 # Fetch summary data
-days = 1 if kind == 'Daily' else 7
-data, users_data = get_data(days=days)
+if not kind or kind == 'Daily':
+    days = 1
+else:
+    days = 7
+conversations, new_users = get_data(days=days)
 logger.info(f"{kind} summary data fetched from DB")
 
 # Load recipients list
@@ -60,7 +63,7 @@ if not recipients:
 logger.info(f"Sending email to {len(recipients)} recipients")
 
 # Generate email content
-email_generator = UsageSummary(data, users_data, kind=kind)
+email_generator = UsageSummary(conversations, new_users, kind=kind)
 email_content = email_generator.generate_html_email()
 logger.info("Email generated")
 
