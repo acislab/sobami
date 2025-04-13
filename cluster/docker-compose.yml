@@ -94,3 +94,27 @@ services:
           limits:
             memory: ${SERVICE_MEMORY}
             cpus: ${SERVICE_CPUS}
+
+  grafana:
+    image: ${GRAFANA_DOCKER_IMAGE}
+    volumes:
+      - ${GRAFANA_STORAGE_PATH}:/var/lib/grafana:rw
+    networks:
+      - host
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_SERVER_HTTP_PORT=${GRAFANA_PORT:-3000}
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+          limits:
+            memory: ${SERVICE_MEMORY}
+            cpus: ${SERVICE_CPUS}
+
