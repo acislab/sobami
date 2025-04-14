@@ -18,6 +18,9 @@ services:
       - HF_TOKEN=${HF_TOKEN}
       - NCCL_SOCKET_IFNAME=${RAY_HEAD_ETHERNET_DEVICE}
       - GLOO_SOCKET_IFNAME=${RAY_HEAD_ETHERNET_DEVICE}
+      - RAY_PROMETHEUS_HOST=${RAY_PROMETHEUS_HOST}
+      - RAY_GRAFANA_HOST=${RAY_GRAFANA_HOST}
+      - RAY_PROMETHEUS_NAME=${RAY_PROMETHEUS_NAME}
     deploy:
       placement:
         constraints:
@@ -104,7 +107,11 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
-      - GF_SERVER_HTTP_PORT=${GRAFANA_PORT:-3000}
+      - GF_SERVER_HTTP_PORT=${GRAFANA_PORT}
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_SECURITY_ALLOW_EMBEDDING=true
     deploy:
       placement:
         constraints:
