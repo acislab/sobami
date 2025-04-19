@@ -9,6 +9,7 @@ WORKDIR /app
 
 USER root
 
+# Repeat the packages required for this ray[llm]
 RUN --mount=type=cache,target=/root/.cache/pip pip install \
     "ray[serve,llm]==2.44.1" \
     "vllm>=0.7.2" \
@@ -19,7 +20,9 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install \
     transformers \
     accelerate
 
+# Copy application
 COPY serve.py /app/
+COPY ".serve.env" /app/
 COPY --chmod=755 start.sh /app/
 
 USER 1000:1000
