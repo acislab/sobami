@@ -1,4 +1,8 @@
 #!/bin/bash
+# This script attempts to gracefully shut down a Ray Serve instance.
+# It uses a Docker container with the specified Ray image to execute the
+# `serve shutdown` command against the configured SERVE_ADDRESS.
+
 set -euo pipefail
 
 # --- Configuration ---

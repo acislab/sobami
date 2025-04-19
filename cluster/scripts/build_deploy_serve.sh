@@ -38,12 +38,10 @@ echo "Created temporary build context: $BUILD_CONTEXT"
 # Set trap for cleanup on exit or error
 trap cleanup EXIT
 
-[[ ! -f "$SERVE_DIR/serve.py" ]] && error_exit "Source file not found: $SERVE_DIR/serve.py"
-[[ ! -f "$SERVE_DIR/start.sh" ]] && error_exit "Source file not found: $SERVE_DIR/start.sh"
+[[ ! -d "$SERVE_DIR" ]] && error_exit "Source directory not found: $SERVE_DIR"
 [[ ! -f "$DOCKERFILE" ]] && error_exit "Dockerfile not found: $DOCKERFILE"
-echo "Copying files to build context..."
-cp "$SERVE_DIR/serve.py" "$BUILD_CONTEXT/" || error_exit "Failed to copy serve.py"
-cp "$SERVE_DIR/start.sh" "$BUILD_CONTEXT/" || error_exit "Failed to copy start.sh"
+echo "Copying serve directory contents to build context..."
+cp -r "$SERVE_DIR"/. "$BUILD_CONTEXT/" || error_exit "Failed to copy serve directory contents"
 cp "$DOCKERFILE" "$BUILD_CONTEXT/Dockerfile.serve" || error_exit "Failed to copy Dockerfile.serve"
 echo "Files copied successfully."
 
