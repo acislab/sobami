@@ -26,9 +26,10 @@ logger = logging.getLogger("ray.serve")
 app = FastAPI()
 
 @serve.deployment(
-    autoscaling_config={
-        "max_replicas": 1,
-    },
+    autoscaling_config={"max_replicas": 1},
+    ray_actor_options={
+        "runtime_env": {"pip": ["vllm==0.8.3"]}
+    }
 )
 @serve.ingress(app)
 class VLLMDeployment:
@@ -45,12 +46,14 @@ class VLLMDeployment:
         self.request_logger = request_logger
         self.chat_template = chat_template
         self.openai_serving_chat = None
-        del os.environ['CUDA_VISIBLE_DEVICES']
+        if 'CUDA_VISIBLE_DEVICES' in os.environ:
+            logger.info(f"Unsetting CUDA_VISIBLE_DEVICES (was {os.environ['CUDA_VISIBLE_DEVICES']})")
+            del os.environ['CUDA_VISIBLE_DEVICES']
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
 
     @app.post("/v1/chat/completions")
     async def create_chat_completion(
-        self, request: ChatCompletionRequest, raw_request: Request
+        self, request: ChatCompletionRequest,   raw_request: Request
     ):
         """OpenAI-compatible HTTP endpoint.
 
@@ -126,12 +129,20 @@ def build_app(cli_args: Dict[str, str]) -> serve.Application:
 
     Supported engine arguments: https://docs.vllm.ai/en/latest/models/engine_args.html.
     """
+    # Add these to cli_args if not present
+    if "max_num_seqs" not in cli_args:
+        cli_args["max_num_seqs"] = "64"
+    if "max_num_batched_tokens" not in cli_args:
+        cli_args["max_num_batched_tokens"] = "8192"
+    
     parsed_args = parse_vllm_args(cli_args)
     engine_args = AsyncEngineArgs.from_cli_args(parsed_args)
-    pg_resources = [{"CPU": 1, "GPU": 1}, {"GPU": 1}, {"GPU": 1}]
     print(f'Parsed_args: {parsed_args}, Engine: {engine_args}')
+    pg_bundles = [{"CPU": 1, "GPU": 1},{"CPU": 1, "GPU": 1}]
+
     return VLLMDeployment.options(
-        placement_group_bundles=pg_resources, placement_group_strategy="SPREAD"
+        placement_group_bundles=pg_bundles,
+        placement_group_strategy="PACK"
     ).bind(
         engine_args,
         parsed_args.response_role,

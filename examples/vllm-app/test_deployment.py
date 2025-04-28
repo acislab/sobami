@@ -7,11 +7,18 @@ client = OpenAI(
     api_key="-"
 )
 
-completions = client.chat.completions.create(
+stream = client.chat.completions.create(
     model="meta-llama/Llama-3.1-8B-Instruct",
     messages=[
-        {"role": "user", "content": "Classify this sentiment: vLLM is wonderful!"}
+        {"role": "user", "content": "How do you suggest navigating the tough job market in software engineering?"},
     ],
-    extra_body={"guided_choice": ["positive", "negative"]},
+    max_tokens=10,
+    stream=True
 )
-print(completions.choices[0])
+import sys
+
+print("Streaming response:")
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        sys.stdout.write(chunk.choices[0].delta.content)
+        sys.stdout.flush()
