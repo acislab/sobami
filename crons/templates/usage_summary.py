@@ -66,7 +66,7 @@ class UsageSummary:
     def get_total_messages(self):
         total_messages = 0
         for conv in self.conversations:
-            total_messages += conv["counts"]["user_text_message"]
+            total_messages += conv["counts"]["user_message"]
         return total_messages
     
     def generate_html_email(self) -> str:
@@ -287,7 +287,7 @@ class UsageSummary:
                                 <p><strong>Date:</strong> {{ conv.last_message_created }}</p>
                             </div>
                         </div>
-                        <div class="message-count">{{ conv.counts["user_text_message"] }} user messages</div>
+                        <div class="message-count">{{ conv.counts["user_message"] }} user messages</div>
                     </div>
                     {% endfor %}
                 </div>

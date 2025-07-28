@@ -74,7 +74,7 @@ def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
         Array of conversation objects sorted by last_message_created
     """
     try:
-        db.execute("SELECT DISTINCT type FROM messages;")
+        db.execute("SELECT DISTINCT message->>'kind' FROM \"v2/messages\";")
         message_types = [row[0] for row in db.fetchall()]
         # dynamic query to retrieve all message type count
         query = """
@@ -85,14 +85,14 @@ def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
             COUNT(m.id) AS total_messages_count
         """
         for type in message_types:
-            query += f", COUNT(CASE WHEN m.type = '{type}' THEN 1 END)AS {type}_count"
+            query += f", COUNT(CASE WHEN m.message->>'kind' = '{type}' THEN 1 END)AS {type}_count"
         query += """,
             MAX(m.created) AS last_message_created
         FROM 
             conversations c
         JOIN users u
             ON u.id = c.user_id
-        LEFT JOIN messages m 
+        LEFT JOIN "v2/messages" m 
             ON c.id = m.conversation_id
         WHERE
             c.created >= %s
@@ -120,7 +120,7 @@ def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
             conversation["counts"] = counts
             conversations.append(conversation)
         return conversations
-        
+
     except Exception as e:
         logger.error(f"Error retrieving conversation data: {e}")
         raise
@@ -136,7 +136,7 @@ def get_data(days: int = 7) -> Dict[str, Any]:
         db_host = os.getenv("PG_HOST")
         db_port = os.getenv("PG_PORT")
         db_name = os.getenv("PG_DB")
-        
+
         if not all([db_user, db_pass, db_host, db_port, db_name]):
             raise ValueError("Missing database connection parameters in environment variables")
 
@@ -171,17 +171,14 @@ def export_weekly_data(output_file: str = "user_data_export.json") -> str:
     try:
         days = 3
         conversations, users = get_data(days)
-        data = {
-            "conversations": conversations,
-            "new_users": users
-        }
+        data = {"conversations": conversations, "new_users": users}
 
         with open(output_file, "w") as f:
             json.dump(data, f, indent=2, default=str)
-            
+
         logger.info(f"Data successfully exported to {output_file}")
         return output_file
-        
+
     except Exception as e:
         logger.error(f"Failed to export weekly data: {e}")
         raise
@@ -192,15 +189,15 @@ if __name__ == "__main__":
         logging.basicConfig(
             level=logging.DEBUG,
             format="%(asctime)s - %(levelname)s - %(message)s",
-            handlers=[logging.StreamHandler()]
+            handlers=[logging.StreamHandler()],
         )
         logger = logging.getLogger(__name__)
 
         load_dotenv(".chat.env")
         logger.info("Running in standalone mode for testing")
-        
+
         output_file = export_weekly_data()
         logger.info(f"Test export completed: {output_file}")
-        
+
     except Exception as e:
         logger.error(f"Error in main execution: {e}")
