@@ -1,8 +1,9 @@
-from jinja2 import Template
-from datetime import datetime, timedelta
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import List, Dict
-from enum import Enum
+
+from jinja2 import Template
+
 
 @dataclass
 class Conversation:
@@ -26,22 +27,17 @@ class User:
     organization: str = ""
 
 class UsageSummary:
-    def __init__(self, conversations: List[Conversation], users: List[User] = None, kind='Weekly'):
+    def __init__(self, conversations: List[Conversation], users: List[User] = None, days=1):
         self.conversations = conversations or []
         self.users = users or []
         self.message_metrics: Dict[str, MessageMetric] = {}
-        self.kind = kind
+        self.days = days
 
     def format_date(self, date: datetime) -> str:
         return date.strftime("%b %d, %Y at %I:%M %p")
 
     def get_reporting_period(self) -> Dict[str, str]:
-        if self.kind == 'Weekly':
-            days = 7
-        else:
-            days = 1
-
-        start_date = datetime.now().date() - timedelta(days=days)
+        start_date = datetime.now().date() - timedelta(days=self.days)
         end_date = datetime.now().date() - timedelta(1)
         return {
             "start": start_date.strftime("%B %d, %Y"),
@@ -224,8 +220,8 @@ class UsageSummary:
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>iChatBio - {{ kind }} User Activity</h1>
-                    {% if kind == 'Weekly' %}
+                    <h1>iChatBio - {{ frequency }} User Activity</h1>
+                    {% if frequency != 'Daily' %}
                         <p><u>{{ period.start }} - {{ period.end }}</u></p>
                     {% else %}
                         <p><u>{{ period.start }}</u></p>
@@ -329,6 +325,6 @@ class UsageSummary:
             users=self.users,
             total_conversations=len(self.conversations),
             conversations=self.conversations,
-            kind=self.kind,
+            frequency="Daily" if self.days == 1 else f"{self.days}-Day",
             generation_date=datetime.now().strftime("%B %d, %Y")
         )

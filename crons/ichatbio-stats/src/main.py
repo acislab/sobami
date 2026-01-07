@@ -1,23 +1,23 @@
+import argparse
+import datetime
+import logging
+import os
+import smtplib
+import sys
+import time
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
+
 from dotenv import load_dotenv
-import smtplib
-import logging
-import datetime
-import time
-import os
-import json
-import sys
-import argparse
 
 from stats import get_data
 from templates.usage_summary import UsageSummary
 
 parser = argparse.ArgumentParser('iChatBio Usage Summary Service')
-parser.add_argument('--kind', dest="kind", choices=['Daily', 'Weekly'], type=str, help='Choose a summary duration')
+parser.add_argument('--kind', dest="days", default=1, type=int, help='Choose a summary duration')
 args = parser.parse_args()
-kind = args.kind
+days = args.days
 
 # Logging Setup
 log_file = 'ichatbio_email_service.log'
@@ -38,23 +38,16 @@ logging.info(f"New job execution started at {datetime.datetime.now().strftime('%
 logging.info("=" * 50 + "\n")
 
 # Load environment variables
-load_dotenv(".chat.env")
-logging.info("Loaded .chat.env")
+load_dotenv()
+logging.info("Loaded environment")
 
 # Fetch summary data
-if not kind or kind == 'Daily':
-    days = 1
-else:
-    days = 7
 conversations, new_users = get_data(days=days)
-logging.info(f"{kind} summary data fetched from DB")
+logging.info(f"{days} day(s) of data fetched from DB")
 
 # Load recipients list
-recipients_file = os.getenv("RECIPIENTS_FILE", "../recipients.json")
-with open(recipients_file, "r") as file:
-    receivers = json.load(file)
+recipients = os.getenv("RECIPIENTS").split(",")
 
-recipients = receivers.get("recipients", [])
 if not recipients:
     logging.error("No recipients configured. Email not sent.")
     sys.exit(1)
@@ -62,7 +55,7 @@ if not recipients:
 logging.info(f"Sending email to {len(recipients)} recipients")
 
 # Generate email content
-email_generator = UsageSummary(conversations, new_users, kind=kind)
+email_generator = UsageSummary(conversations, new_users, days=days)
 email_content = email_generator.generate_html_email()
 logging.info("Email generated")
 
@@ -71,7 +64,7 @@ message = MIMEMultipart("alternative")
 sender_name = os.getenv("EMAIL_FROM_NAME",)
 sender_email = os.getenv("EMAIL_FROM_EMAIL")
 message['From'] = formataddr((sender_name, sender_email))
-message['Subject'] = f"iChatBio - {kind} Summary"
+message['Subject'] = f"iChatBio - {'Daily' if days == 1 else f'{days}-Day'} Summary"
 message['To'] = ", ".join(recipients)
 message.attach(MIMEText(email_content, "html"))
 
