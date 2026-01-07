@@ -12,7 +12,6 @@ import sys
 import argparse
 
 from stats import get_data
-sys.path.append('../')
 from templates.usage_summary import UsageSummary
 
 parser = argparse.ArgumentParser('iChatBio Usage Summary Service')
@@ -51,7 +50,7 @@ conversations, new_users = get_data(days=days)
 logger.info(f"{kind} summary data fetched from DB")
 
 # Load recipients list
-recipients_file = os.getenv("RECIPIENTS_FILE", "recipients.json")
+recipients_file = os.getenv("RECIPIENTS_FILE", "../recipients.json")
 with open(recipients_file, "r") as file:
     receivers = json.load(file)
 
