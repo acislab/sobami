@@ -14,6 +14,8 @@ from dotenv import load_dotenv
 from stats import get_data
 from templates.usage_summary import UsageSummary
 
+load_dotenv()
+
 parser = argparse.ArgumentParser('iChatBio Usage Summary Service')
 parser.add_argument('--kind', dest="days", default=1, type=int, help='Choose a summary duration')
 args = parser.parse_args()
@@ -36,10 +38,6 @@ logging.info(f"Logging initialized. Saving logs to {log_file}")
 logging.info("\n" + "=" * 50)
 logging.info(f"New job execution started at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 logging.info("=" * 50 + "\n")
-
-# Load environment variables
-load_dotenv()
-logging.info("Loaded environment")
 
 # Fetch summary data
 conversations, new_users = get_data(days=days)
