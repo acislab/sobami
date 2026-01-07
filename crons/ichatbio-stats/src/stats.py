@@ -1,10 +1,9 @@
-from datetime import datetime, timedelta
-from dotenv import load_dotenv
-import json
 import logging
 import os
-import psycopg2
+from datetime import datetime, timedelta
 from typing import Dict, Any
+
+import psycopg2
 
 
 # ================================================================== #
@@ -15,7 +14,7 @@ def get_db_connection(connection_string: str) -> psycopg2.extensions.connection:
         conn = psycopg2.connect(connection_string)
         return conn
     except Exception as e:
-        logger.error(f"Database connection error: {e}")
+        logging.error(f"Database connection error: {e}")
         raise
 
 
@@ -61,7 +60,7 @@ def get_new_users(db, period: Dict[str, datetime]) -> Dict[str, str]:
         return users
 
     except Exception as e:
-        logger.error(f"Error fetching new users: {e}")
+        logging.error(f"Error fetching new users: {e}")
         raise
 
 
@@ -122,7 +121,7 @@ def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
         return conversations
 
     except Exception as e:
-        logger.error(f"Error retrieving conversation data: {e}")
+        logging.error(f"Error retrieving conversation data: {e}")
         raise
 
 
@@ -160,44 +159,5 @@ def get_data(days: int = 7) -> Dict[str, Any]:
 
         return conversations, new_users
     except Exception as e:
-        logger.error(f"Failed to retrieve data: {e}")
+        logging.error(f"Failed to retrieve data: {e}")
         raise
-
-
-# ================================================================== #
-# Test/Export data into JSON
-# ================================================================== #
-def export_weekly_data(output_file: str = "user_data_export.json") -> str:
-    try:
-        days = 3
-        conversations, users = get_data(days)
-        data = {"conversations": conversations, "new_users": users}
-
-        with open(output_file, "w") as f:
-            json.dump(data, f, indent=2, default=str)
-
-        logger.info(f"Data successfully exported to {output_file}")
-        return output_file
-
-    except Exception as e:
-        logger.error(f"Failed to export weekly data: {e}")
-        raise
-
-
-if __name__ == "__main__":
-    try:
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format="%(asctime)s - %(levelname)s - %(message)s",
-            handlers=[logging.StreamHandler()],
-        )
-        logger = logging.getLogger(__name__)
-
-        load_dotenv(".chat.env")
-        logger.info("Running in standalone mode for testing")
-
-        output_file = export_weekly_data()
-        logger.info(f"Test export completed: {output_file}")
-
-    except Exception as e:
-        logger.error(f"Error in main execution: {e}")

@@ -30,16 +30,16 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-logger = logging.getLogger(log_file)
-logger.info(f"Logging initialized. Saving logs to {log_file}")
 
-logger.info("\n" + "=" * 50)
-logger.info(f"New job execution started at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-logger.info("=" * 50 + "\n")
+logging.info(f"Logging initialized. Saving logs to {log_file}")
+
+logging.info("\n" + "=" * 50)
+logging.info(f"New job execution started at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+logging.info("=" * 50 + "\n")
 
 # Load environment variables
 load_dotenv(".chat.env")
-logger.info("Loaded .chat.env")
+logging.info("Loaded .chat.env")
 
 # Fetch summary data
 if not kind or kind == 'Daily':
@@ -47,7 +47,7 @@ if not kind or kind == 'Daily':
 else:
     days = 7
 conversations, new_users = get_data(days=days)
-logger.info(f"{kind} summary data fetched from DB")
+logging.info(f"{kind} summary data fetched from DB")
 
 # Load recipients list
 recipients_file = os.getenv("RECIPIENTS_FILE", "../recipients.json")
@@ -56,15 +56,15 @@ with open(recipients_file, "r") as file:
 
 recipients = receivers.get("recipients", [])
 if not recipients:
-    logger.error("No recipients configured. Email not sent.")
+    logging.error("No recipients configured. Email not sent.")
     sys.exit(1)
 
-logger.info(f"Sending email to {len(recipients)} recipients")
+logging.info(f"Sending email to {len(recipients)} recipients")
 
 # Generate email content
 email_generator = UsageSummary(conversations, new_users, kind=kind)
 email_content = email_generator.generate_html_email()
-logger.info("Email generated")
+logging.info("Email generated")
 
 # Prepare email
 message = MIMEMultipart("alternative")
@@ -82,16 +82,16 @@ retry_delay = int(os.getenv("RETRY_DELAY", 5))
 # Send email with retries
 for attempt in range(1, retry_attempts + 1):
     try:
-        logger.info(f"Sending email to {len(recipients)} recipients (attempt {attempt})")
+        logging.info(f"Sending email to {len(recipients)} recipients (attempt {attempt})")
         with smtplib.SMTP(os.getenv("SMTP_SERVER"), os.getenv("SMTP_PORT")) as smtp:
             smtp.sendmail(sender_email, recipients, message.as_string())
-        logger.info(f"Email sent successfully to {len(recipients)} recipients")
+        logging.info(f"Email sent successfully to {len(recipients)} recipients")
         sys.exit(0)
     except Exception as e:
-        logger.error(f"Failed to send email (attempt {attempt}): {e}")
+        logging.error(f"Failed to send email (attempt {attempt}): {e}")
         if attempt < retry_attempts:
-            logger.info(f"Retrying in {retry_delay} seconds...")
+            logging.info(f"Retrying in {retry_delay} seconds...")
             time.sleep(retry_delay)
 
-logger.error("All attempts to send email failed")
+logging.error("All attempts to send email failed")
 sys.exit(1)
