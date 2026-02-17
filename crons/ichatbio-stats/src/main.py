@@ -11,6 +11,7 @@ from email.utils import formataddr
 
 from dotenv import load_dotenv
 
+import services
 from stats import get_data
 from templates.usage_summary import UsageSummary
 
@@ -43,8 +44,12 @@ logging.info("=" * 50 + "\n")
 conversations, new_users = get_data(days=days)
 logging.info(f"{days} day(s) of data fetched from DB")
 
+# Check online services
+service_defs = os.getenv("SERVICES", "").strip().split("\n")
+service_statuses = [{"name": agent, "status": status} for agent, status in services.check_all(service_defs)]
+
 # Load recipients list
-recipients = os.getenv("RECIPIENTS").split(",")
+recipients = os.getenv("RECIPIENTS", "").split(",")
 
 if not recipients:
     logging.error("No recipients configured. Email not sent.")
@@ -53,7 +58,7 @@ if not recipients:
 logging.info(f"Sending email to {len(recipients)} recipients")
 
 # Generate email content
-email_generator = UsageSummary(conversations, new_users, days=days)
+email_generator = UsageSummary(service_statuses, conversations, new_users, days=days)
 email_content = email_generator.generate_html_email()
 logging.info("Email generated")
 

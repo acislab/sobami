@@ -18,7 +18,7 @@ def get_db_connection(connection_string: str) -> psycopg2.extensions.connection:
         raise
 
 
-def get_new_users(db, period: Dict[str, datetime]) -> Dict[str, str]:
+def get_new_users(db, period: Dict[str, datetime]):
     """
     Fetch users who registered within the last specified number of days.
     Args:
@@ -64,7 +64,7 @@ def get_new_users(db, period: Dict[str, datetime]) -> Dict[str, str]:
         raise
 
 
-def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
+def get_conversations(db, period: Dict[str, datetime]):
     """
     Args:
         db: database cursor to execute queries
@@ -132,7 +132,7 @@ def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
 # ================================================================== #
 # Retrieval and Export
 # ================================================================== #
-def get_data(days: int = 7) -> Dict[str, Any]:
+def get_data(days: int):
     try:
         db_user = os.getenv("PG_USER")
         db_pass = os.getenv("PG_PASS")

@@ -14,9 +14,9 @@ def check_ok(url: str):
         logging.warning("Failed health check: " + url, exc_info=e)
         return False
 
-def check_all(agents: Iterable[str]) -> Iterator[Tuple[str, bool]]:
-    yield "ichatbio.org", check_ok("https://ichatbio.org")
-
-    for agent in agents:
-        url = f"http://icb-agents.acis.ufl.edu/{agent}/.well-known/agent.json"
-        yield agent, check_ok(url)
+def check_all(services: Iterable[str]) -> Iterator[Tuple[str, bool]]:
+    for service in services:
+        parts = service.split(" ")
+        name = " ".join(parts[:-1])
+        url = parts[-1]
+        yield name, check_ok(url)
