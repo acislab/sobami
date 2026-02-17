@@ -73,7 +73,11 @@ def get_conversations(db, period: Dict[str, datetime]) -> Dict[str, Any]:
         Array of conversation objects sorted by last_message_created
     """
     try:
-        db.execute("SELECT DISTINCT message->>'kind' FROM \"v2/messages\";")
+        db.execute("""
+            SELECT DISTINCT message->>'kind'
+            FROM "v2/messages"
+            WHERE message::text !~ '\\\\u0000'
+        """)
         message_types = [row[0] for row in db.fetchall()]
         # dynamic query to retrieve all message type count
         query = """
